@@ -1,0 +1,94 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    
+    "businesses": {
+      "$businessId": {
+        ".read": "auth != null",
+        ".write": "auth != null && auth.uid === $businessId",
+        
+        "info": {
+          ".validate": "newData.hasChildren(['name', 'type', 'email', 'phone'])",
+          "name": { ".validate": "newData.isString() && newData.val().length > 0" },
+          "type": { ".validate": "newData.isString() && newData.val().matches(/^(Bar|Pizzeria|Restaurant|Cafe|Other)$/)" },
+          "email": { ".validate": "newData.isString() && newData.val().matches(/^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$/)" },
+          "phone": { ".validate": "newData.isString() && newData.val().length >= 8" },
+          "createdAt": { ".validate": "newData.isNumber()" },
+          "$other": { ".validate": false }
+        },
+        
+        "scans": {
+          "$scanId": {
+            ".read": "auth != null && (auth.uid === $businessId || auth.uid === data.child('userId').val())",
+            ".write": "auth != null && (auth.uid === $businessId || auth.uid === newData.child('userId').val())",
+            ".validate": "newData.hasChildren(['userId', 'timestamp'])",
+            "userId": { ".validate": "newData.isString()" },
+            "timestamp": { ".validate": "newData.isNumber() && newData.val() <= now" },
+            "$other": { ".validate": false }
+          }
+        },
+        
+        "rewards": {
+          "$rewardId": {
+            ".read": "auth != null",
+            ".write": "auth != null && auth.uid === $businessId",
+            ".validate": "newData.hasChildren(['userId', 'createdAt', 'expiresAt', 'redeemed'])",
+            "userId": { ".validate": "newData.isString()" },
+            "createdAt": { ".validate": "newData.isNumber() && newData.val() <= now" },
+            "expiresAt": { ".validate": "newData.isNumber() && newData.val() > now" },
+            "redeemed": { ".validate": "newData.isBoolean()" },
+            "$other": { ".validate": false }
+          }
+        },
+        
+        "analytics": {
+          ".read": "auth != null",
+          ".write": "auth != null",
+          "totalScans": { ".validate": "newData.isNumber()" },
+          "uniqueCustomers": { ".validate": "newData.isNumber()" },
+          "activeRewards": { ".validate": "newData.isNumber()" },
+          "$other": { ".validate": false }
+        }
+      }
+    },
+    
+    "users": {
+      "$userId": {
+        ".read": "auth != null && auth.uid === $userId",
+        ".write": "auth != null && auth.uid === $userId",
+        
+        "profile": {
+          ".validate": "newData.hasChildren(['name', 'email'])",
+          "name": { ".validate": "newData.isString() && newData.val().length > 0" },
+          "email": { ".validate": "newData.isString() && newData.val().matches(/^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$/)" },
+          "createdAt": { ".validate": "newData.isNumber()" },
+          "$other": { ".validate": false }
+        },
+        
+        "rewards": {
+          "$rewardId": {
+            ".read": true,
+            ".write": "auth != null && auth.uid === $userId",
+            ".validate": "newData.hasChildren(['businessId', 'createdAt', 'expiresAt'])",
+            "businessId": { ".validate": "newData.isString()" },
+            "createdAt": { ".validate": "newData.isNumber() && newData.val() <= now" },
+            "expiresAt": { ".validate": "newData.isNumber() && newData.val() > now" },
+            "$other": { ".validate": false }
+          }
+        },
+        
+        "scans": {
+          "$scanId": {
+            ".read": "auth != null && auth.uid === $userId",
+            ".write": "auth != null && auth.uid === $userId",
+            ".validate": "newData.hasChildren(['businessId', 'timestamp'])",
+            "businessId": { ".validate": "newData.isString()" },
+            "timestamp": { ".validate": "newData.isNumber() && newData.val() <= now" },
+            "$other": { ".validate": false }
+          }
+        }
+      }
+    }
+  }
+}

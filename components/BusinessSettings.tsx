@@ -1,0 +1,443 @@
+import { useState, useEffect } from 'react';
+import { View, Text, TextInput, StyleSheet, ScrollView, TouchableOpacity, Platform } from 'react-native';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { Save, Building2 } from 'lucide-react-native';
+
+interface BusinessHours {
+  open: string;
+  close: string;
+}
+
+interface DaysHours {
+  [key: string]: BusinessHours;
+}
+
+interface BusinessSettings {
+  name: string;
+  address: {
+    street: string;
+    city: string;
+    state: string;
+    zipCode: string;
+  };
+  contact: {
+    phone: string;
+    email: string;
+  };
+  hours: DaysHours;
+  description: string;
+}
+
+interface BusinessSettingsProps {
+  businessId: string;
+}
+
+const DEFAULT_HOURS: DaysHours = {
+  monday: { open: '09:00', close: '17:00' },
+  tuesday: { open: '09:00', close: '17:00' },
+  wednesday: { open: '09:00', close: '17:00' },
+  thursday: { open: '09:00', close: '17:00' },
+  friday: { open: '09:00', close: '17:00' },
+  saturday: { open: '10:00', close: '15:00' },
+  sunday: { open: '10:00', close: '15:00' },
+};
+
+export default function BusinessSettings({ businessId }: BusinessSettingsProps) {
+  const [settings, setSettings] = useState<BusinessSettings>({
+    name: '',
+    address: {
+      street: '',
+      city: '',
+      state: '',
+      zipCode: '',
+    },
+    contact: {
+      phone: '',
+      email: '',
+    },
+    hours: DEFAULT_HOURS,
+    description: '',
+  });
+
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+
+  useEffect(() => {
+    loadBusinessSettings();
+  }, [businessId]);
+
+  const loadBusinessSettings = async () => {
+    try {
+      const businessRef = doc(db, 'businesses', businessId);
+      const businessDoc = await getDoc(businessRef);
+
+      if (businessDoc.exists()) {
+        const data = businessDoc.data();
+        setSettings({
+          name: data.name || '',
+          address: data.address || {
+            street: '',
+            city: '',
+            state: '',
+            zipCode: '',
+          },
+          contact: data.contact || {
+            phone: '',
+            email: '',
+          },
+          hours: data.hours || DEFAULT_HOURS,
+          description: data.description || '',
+        });
+      }
+    } catch (err) {
+      console.error('Error loading business settings:', err);
+      setError('Failed to load business settings');
+    }
+  };
+
+  const handleSave = async () => {
+    if (!settings.name || !settings.contact.email || !settings.contact.phone) {
+      setError('Please fill in all required fields');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    setSuccess(false);
+
+    try {
+      const businessRef = doc(db, 'businesses', businessId);
+      await updateDoc(businessRef, {
+        name: settings.name,
+        address: settings.address,
+        contact: settings.contact,
+        hours: settings.hours,
+        description: settings.description,
+        updatedAt: new Date(),
+      });
+
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 3000);
+    } catch (err) {
+      console.error('Error saving business settings:', err);
+      setError('Failed to save changes');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateHours = (day: string, type: 'open' | 'close', value: string) => {
+    setSettings(prev => ({
+      ...prev,
+      hours: {
+        ...prev.hours,
+        [day]: {
+          ...prev.hours[day],
+          [type]: value,
+        },
+      },
+    }));
+  };
+
+  return (
+    <ScrollView style={styles.container}>
+      <View style={styles.header}>
+        <Building2 size={24} color="#0891b2" />
+        <Text style={styles.title}>Business Information</Text>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Basic Information</Text>
+        
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Business Name *</Text>
+          <TextInput
+            style={styles.input}
+            value={settings.name}
+            onChangeText={(text) => setSettings(prev => ({ ...prev, name: text }))}
+            placeholder="Enter business name"
+          />
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Description</Text>
+          <TextInput
+            style={[styles.input, styles.textArea]}
+            value={settings.description}
+            onChangeText={(text) => setSettings(prev => ({ ...prev, description: text }))}
+            placeholder="Tell customers about your business"
+            multiline
+            numberOfLines={4}
+          />
+        </View>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Contact Information</Text>
+        
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Phone Number *</Text>
+          <TextInput
+            style={styles.input}
+            value={settings.contact.phone}
+            onChangeText={(text) => setSettings(prev => ({
+              ...prev,
+              contact: { ...prev.contact, phone: text }
+            }))}
+            placeholder="Enter phone number"
+            keyboardType="phone-pad"
+          />
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Email Address *</Text>
+          <TextInput
+            style={styles.input}
+            value={settings.contact.email}
+            onChangeText={(text) => setSettings(prev => ({
+              ...prev,
+              contact: { ...prev.contact, email: text }
+            }))}
+            placeholder="Enter email address"
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
+        </View>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Address</Text>
+        
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Street Address</Text>
+          <TextInput
+            style={styles.input}
+            value={settings.address.street}
+            onChangeText={(text) => setSettings(prev => ({
+              ...prev,
+              address: { ...prev.address, street: text }
+            }))}
+            placeholder="Enter street address"
+          />
+        </View>
+
+        <View style={styles.row}>
+          <View style={[styles.inputGroup, styles.flex1]}>
+            <Text style={styles.label}>City</Text>
+            <TextInput
+              style={styles.input}
+              value={settings.address.city}
+              onChangeText={(text) => setSettings(prev => ({
+                ...prev,
+                address: { ...prev.address, city: text }
+              }))}
+              placeholder="City"
+            />
+          </View>
+
+          <View style={[styles.inputGroup, styles.flex1]}>
+            <Text style={styles.label}>State</Text>
+            <TextInput
+              style={styles.input}
+              value={settings.address.state}
+              onChangeText={(text) => setSettings(prev => ({
+                ...prev,
+                address: { ...prev.address, state: text }
+              }))}
+              placeholder="State"
+            />
+          </View>
+
+          <View style={[styles.inputGroup, { flex: 0.8 }]}>
+            <Text style={styles.label}>ZIP Code</Text>
+            <TextInput
+              style={styles.input}
+              value={settings.address.zipCode}
+              onChangeText={(text) => setSettings(prev => ({
+                ...prev,
+                address: { ...prev.address, zipCode: text }
+              }))}
+              placeholder="ZIP"
+              keyboardType="numeric"
+            />
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Business Hours</Text>
+        
+        {Object.entries(settings.hours).map(([day, hours]) => (
+          <View key={day} style={styles.hoursRow}>
+            <Text style={styles.dayLabel}>
+              {day.charAt(0).toUpperCase() + day.slice(1)}
+            </Text>
+            <View style={styles.hoursInputs}>
+              <TextInput
+                style={[styles.input, styles.timeInput]}
+                value={hours.open}
+                onChangeText={(text) => updateHours(day, 'open', text)}
+                placeholder="09:00"
+              />
+              <Text style={styles.toText}>to</Text>
+              <TextInput
+                style={[styles.input, styles.timeInput]}
+                value={hours.close}
+                onChangeText={(text) => updateHours(day, 'close', text)}
+                placeholder="17:00"
+              />
+            </View>
+          </View>
+        ))}
+      </View>
+
+      {error && (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      )}
+
+      {success && (
+        <View style={styles.successContainer}>
+          <Text style={styles.successText}>Changes saved successfully!</Text>
+        </View>
+      )}
+
+      <TouchableOpacity 
+        style={[styles.saveButton, loading && styles.saveButtonDisabled]} 
+        onPress={handleSave}
+        disabled={loading}
+      >
+        <Save size={20} color="#fff" />
+        <Text style={styles.saveButtonText}>
+          {loading ? 'Saving...' : 'Save Changes'}
+        </Text>
+      </TouchableOpacity>
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 20,
+    gap: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#0f172a',
+  },
+  section: {
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#0f172a',
+    marginBottom: 16,
+  },
+  inputGroup: {
+    marginBottom: 16,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#64748b',
+    marginBottom: 8,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    backgroundColor: '#f8fafc',
+  },
+  textArea: {
+    height: 100,
+    textAlignVertical: 'top',
+  },
+  row: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  flex1: {
+    flex: 1,
+  },
+  hoursRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  dayLabel: {
+    width: 100,
+    fontSize: 16,
+    color: '#0f172a',
+  },
+  hoursInputs: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  timeInput: {
+    flex: 1,
+    textAlign: 'center',
+  },
+  toText: {
+    fontSize: 16,
+    color: '#64748b',
+  },
+  errorContainer: {
+    margin: 20,
+    padding: 12,
+    backgroundColor: '#fee2e2',
+    borderRadius: 8,
+  },
+  errorText: {
+    color: '#dc2626',
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  successContainer: {
+    margin: 20,
+    padding: 12,
+    backgroundColor: '#dcfce7',
+    borderRadius: 8,
+  },
+  successText: {
+    color: '#16a34a',
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  saveButton: {
+    margin: 20,
+    backgroundColor: '#0891b2',
+    padding: 16,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  saveButtonDisabled: {
+    opacity: 0.7,
+  },
+  saveButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+});

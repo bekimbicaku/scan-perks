@@ -1,0 +1,128 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    function isBusinessOwner(businessId) {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/businesses/$(businessId)) &&
+        get(/databases/$(database)/documents/businesses/$(businessId)).data.ownerId == request.auth.uid;
+    }
+
+    function canScanToday(businessId) {
+      let now = request.time;
+      let userScans = get(/databases/$(database)/documents/users/$(request.auth.uid)/scans/$(businessId));
+      
+      // Allow if first scan or if last scan was not today
+      return !exists(/databases/$(database)/documents/users/$(request.auth.uid)/scans/$(businessId)) ||
+             (userScans.data.lastScan.toDate().date() != now.toDate().date() ||
+              userScans.data.lastScan.toDate().month() != now.toDate().month() ||
+              userScans.data.lastScan.toDate().year() != now.toDate().year());
+    }
+
+    function hasValidScanData() {
+      let data = request.resource.data;
+      return data.keys().hasAll(['businessId', 'lastScan', 'totalScans']) &&
+             data.businessId is string &&
+             data.lastScan is timestamp &&
+             data.totalScans is number &&
+             data.totalScans > 0;
+    }
+
+    // Users collection
+    match /users/{userId} {
+      allow read: if isAuthenticated() && isOwner(userId);
+      allow create: if isAuthenticated() && isOwner(userId);
+      allow update: if isAuthenticated() && isOwner(userId);
+      allow delete: if isAuthenticated() && isOwner(userId);
+
+      // Scans subcollection - Core scanning functionality
+      match /scans/{businessId} {
+        allow read: if isAuthenticated() && isOwner(userId);
+        // Allow authenticated users to create and update their scan records
+        allow create, update: if isAuthenticated() && isOwner(userId);
+        allow delete: if isAuthenticated() && isOwner(userId);
+      }
+
+      // Rewards subcollection - For storing earned rewards
+      match /rewards/{rewardId} {
+        allow read: if isAuthenticated() && isOwner(userId);
+        allow create: if isAuthenticated() && 
+                     isOwner(userId) &&
+                     request.resource.data.keys().hasAll(['businessId', 'createdAt', 'redeemed']) &&
+                     request.resource.data.redeemed == false;
+        allow update: if isAuthenticated() && 
+                     isOwner(userId) &&
+                     request.resource.data.diff(resource.data).affectedKeys().hasOnly(['redeemed', 'redeemedAt']);
+      }
+    }
+
+    // Businesses collection
+    match /businesses/{businessId} {
+      allow read: if true;  // Public business info
+      allow create: if isAuthenticated() && 
+                   request.resource.data.keys().hasAll(['name', 'type', 'email', 'ownerId']) &&
+                   request.resource.data.ownerId == request.auth.uid;
+      allow update: if isBusinessOwner(businessId);
+      allow delete: if isBusinessOwner(businessId);
+
+      // Business QR codes
+      match /qr_codes/{qrId} {
+        allow read: if true;  // QR codes are publicly scannable
+        allow write: if isBusinessOwner(businessId);
+      }
+
+      // Business statistics
+      match /statistics/{docId} {
+        allow read: if true;  // Public stats
+        // Allow authenticated users to update scan statistics
+        allow create, update: if isAuthenticated();
+        allow delete: if isBusinessOwner(businessId);
+      }
+
+      // Business settings
+      match /settings/{settingId} {
+        allow read: if true;  // Public settings like reward thresholds
+        allow write: if isBusinessOwner(businessId);
+      }
+
+      // Business loyalty program settings
+      match /loyalty/{docId} {
+        allow read: if true;
+        allow write: if isBusinessOwner(businessId) &&
+                    request.resource.data.keys().hasAll(['scansRequired', 'reward']);
+      }
+
+      // Business rewards statistics
+      match /rewards/{rewardId} {
+        allow read: if isAuthenticated();  // Allow all authenticated users to read rewards
+        allow write: if isBusinessOwner(businessId);
+      }
+
+      // Business offers collection
+      match /offers/{offerId} {
+        allow read: if isAuthenticated();
+        allow write: if isBusinessOwner(businessId);
+      }
+
+      // Business analytics
+      match /analytics/{docId} {
+        allow read: if isAuthenticated();
+        allow write: if isAuthenticated();
+      }
+    }
+
+    // Public collection for general app content
+    match /public/{document=**} {
+      allow read: if true;
+      allow write: if false;  // Admin-only writes
+    }
+  }
+}

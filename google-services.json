@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "656761980148",
+    "project_id": "scanperks-cc721",
+    "storage_bucket": "scanperks-cc721.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:656761980148:android:48cdbeb6db23e904cc8aa1",
+        "android_client_info": {
+          "package_name": "com.bicakugames.scanperks"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC946xd027YVoob3ZfHNU8YWChG4yN8qbs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
