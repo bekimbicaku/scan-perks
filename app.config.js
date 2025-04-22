@@ -20,7 +20,10 @@ module.exports = {
     ],
     ios: {
       supportsTablet: true,
-      bundleIdentifier: "com.scanperks.app"
+      bundleIdentifier: "com.scanperks.app",
+      infoPlist: {
+      ITSAppUsesNonExemptEncryption: false
+      }
     },
     android: {
       adaptiveIcon: {
