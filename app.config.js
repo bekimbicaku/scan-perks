@@ -19,7 +19,7 @@ module.exports = {
       "**/*"
     ],
     ios: {
-      supportsTablet: true,
+      supportsTablet: false,
       bundleIdentifier: "com.scanperks.app",
       infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
