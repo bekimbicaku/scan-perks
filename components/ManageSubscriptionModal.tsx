@@ -1,7 +1,9 @@
 import { Modal, View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { X, CreditCard, AlertTriangle } from 'lucide-react-native';
+import { X, CreditCard, TriangleAlert as AlertTriangle } from 'lucide-react-native';
 import { useState, useEffect } from 'react';
+import { auth } from '@/lib/firebase';
+import { Platform, Linking } from 'react-native';
 
 interface ManageSubscriptionModalProps {
   visible: boolean;
@@ -16,21 +18,50 @@ export default function ManageSubscriptionModal({
   currentPlan,
   planStartDate,
 }: ManageSubscriptionModalProps) {
-  const [canCancel, setCanCancel] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [daysUntilRenewal, setDaysUntilRenewal] = useState(0);
 
   useEffect(() => {
-    // Calculate if within first 10 days of the month
-    const today = new Date();
-    const dayOfMonth = today.getDate();
-    setCanCancel(dayOfMonth <= 10);
-
-    // Calculate days until next renewal
     const nextRenewal = new Date(planStartDate);
     nextRenewal.setMonth(nextRenewal.getMonth() + 1);
-    const timeDiff = nextRenewal.getTime() - today.getTime();
+    const timeDiff = nextRenewal.getTime() - new Date().getTime();
     setDaysUntilRenewal(Math.ceil(timeDiff / (1000 * 3600 * 24)));
   }, [planStartDate]);
+
+  const handleCancelSubscription = async () => {
+    if (!auth.currentUser) return;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/create-billing-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${await auth.currentUser.getIdToken()}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create billing portal session');
+      }
+
+      const { url } = await response.json();
+
+      if (Platform.OS === 'web') {
+        window.location.href = url;
+      } else {
+        await Linking.openURL(url);
+      }
+    } catch (err) {
+      console.error('Error opening billing portal:', err);
+      setError('Failed to open billing portal. Please try again later.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onClose}>
@@ -53,27 +84,25 @@ export default function ManageSubscriptionModal({
             </View>
           </View>
 
-          {!canCancel && (
-            <View style={styles.warningBox}>
-              <AlertTriangle size={20} color="#f59e0b" />
-              <Text style={styles.warningText}>
-                Subscription can only be cancelled during the first 10 days of each billing cycle.
-              </Text>
+          {error && (
+            <View style={styles.errorBox}>
+              <AlertTriangle size={20} color="#ef4444" />
+              <Text style={styles.errorText}>{error}</Text>
             </View>
           )}
 
           <TouchableOpacity 
-            style={[styles.cancelButton, !canCancel && styles.cancelButtonDisabled]}
-            disabled={!canCancel}
+            style={[styles.cancelButton, loading && styles.cancelButtonDisabled]}
+            onPress={handleCancelSubscription}
+            disabled={loading}
           >
-            <Text style={[styles.cancelButtonText, !canCancel && styles.cancelButtonTextDisabled]}>
-              Cancel Subscription
+            <Text style={styles.cancelButtonText}>
+              {loading ? 'Opening Billing Portal...' : 'Manage Billing'}
             </Text>
           </TouchableOpacity>
 
           <Text style={styles.note}>
-            Note: Cancellation will take effect at the end of your current billing period.
-            You'll continue to have access to all features until then.
+            You'll be redirected to Stripe's secure billing portal to manage your subscription.
           </Text>
         </View>
       </SafeAreaView>
@@ -130,37 +159,34 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#64748b',
   },
-  warningBox: {
+  errorBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    backgroundColor: '#fef3c7',
+    backgroundColor: '#fee2e2',
     padding: 16,
     borderRadius: 12,
-    marginBottom: 24,
+    marginBottom: 16,
+    gap: 8,
   },
-  warningText: {
+  errorText: {
     flex: 1,
     fontSize: 14,
-    color: '#92400e',
+    color: '#ef4444',
   },
   cancelButton: {
-    backgroundColor: '#fee2e2',
+    backgroundColor: '#0891b2',
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
     marginBottom: 16,
   },
   cancelButtonDisabled: {
-    opacity: 0.5,
+    opacity: 0.7,
   },
   cancelButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#ef4444',
-  },
-  cancelButtonTextDisabled: {
-    color: '#64748b',
+    color: '#fff',
   },
   note: {
     fontSize: 14,

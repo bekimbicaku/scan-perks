@@ -4,8 +4,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { signOut } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
 import { router, useRootNavigationState } from 'expo-router';
-import { LogOut, Gift, Tag, ChevronRight } from 'lucide-react-native';
+import { LogOut, Gift, Tag, ChevronRight, Users, TriangleAlert as AlertTriangle } from 'lucide-react-native';
 import { collection, query, where, getDocs, onSnapshot } from 'firebase/firestore';
+import DeleteAccountModal from '@/components/DeleteAccountModal';
 
 interface Offer {
   id: string;
@@ -25,6 +26,7 @@ export default function ProfileScreen() {
     totalPoints: 0,
     totalRewards: 0,
   });
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   // Use navigation state to check if navigation is ready
   const navigationState = useRootNavigationState();
@@ -184,14 +186,29 @@ export default function ProfileScreen() {
           )}
         </View>
 
-        <TouchableOpacity 
-          style={[styles.button, styles.signOutButton]} 
-          onPress={handleSignOut}
-        >
-          <LogOut size={20} color="#ef4444" />
-          <Text style={[styles.buttonText, styles.signOutButtonText]}>Sign Out</Text>
-        </TouchableOpacity>
+        <View style={styles.accountActions}>
+          <TouchableOpacity 
+            style={[styles.button, styles.deleteButton]} 
+            onPress={() => setShowDeleteModal(true)}
+          >
+            <AlertTriangle size={20} color="#ef4444" />
+            <Text style={styles.deleteButtonText}>Delete Account</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[styles.button, styles.signOutButton]} 
+            onPress={handleSignOut}
+          >
+            <LogOut size={20} color="#64748b" />
+            <Text style={styles.signOutButtonText}>Sign Out</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
+
+      <DeleteAccountModal
+        visible={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -332,30 +349,32 @@ const styles = StyleSheet.create({
     color: '#94a3b8',
     fontStyle: 'italic',
   },
+  accountActions: {
+    padding: 20,
+    gap: 12,
+  },
   button: {
-    backgroundColor: '#0891b2',
-    padding: 15,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginHorizontal: 20,
-    marginBottom: 10,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  signOutButton: {
-    backgroundColor: '#fff',
-    borderWidth: 2,
-    borderColor: '#ef4444',
-    marginTop: 20,
-    marginBottom: 40,
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'center',
+    padding: 16,
+    borderRadius: 12,
     gap: 8,
   },
-  signOutButtonText: {
+  deleteButton: {
+    backgroundColor: '#fee2e2',
+  },
+  deleteButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
     color: '#ef4444',
+  },
+  signOutButton: {
+    backgroundColor: '#f1f5f9',
+  },
+  signOutButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#64748b',
   },
 });
