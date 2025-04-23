@@ -22,7 +22,9 @@ module.exports = {
       supportsTablet: true,
       bundleIdentifier: "com.scanperks.app",
       infoPlist: {
-      ITSAppUsesNonExemptEncryption: false
+      ITSAppUsesNonExemptEncryption: false,
+      NSCameraUsageDescription: "We use the camera to scan QR codes at participating businesses and unlock rewards.",
+      NSLocationWhenInUseUsageDescription: "We use your location to show nearby businesses where you can scan QR codes and earn rewards."
       }
     },
     android: {
