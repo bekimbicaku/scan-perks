@@ -1,5 +1,5 @@
 import { doc, getDoc } from 'firebase/firestore';
-import { db } from './firebase';
+import { getDb } from './firebase';
 
 const PLAN_LIMITS = {
   basic: 500,
@@ -7,7 +7,7 @@ const PLAN_LIMITS = {
 } as const;
 
 export async function checkBusinessScanLimit(businessId: string): Promise<{ allowed: boolean; message?: string }> {
-  const businessDoc = await getDoc(doc(db, 'businesses', businessId));
+  const businessDoc = await getDoc(doc(getDb(), 'businesses', businessId));
   if (!businessDoc.exists()) {
     return { allowed: false, message: 'Business not found' };
   }
@@ -24,7 +24,7 @@ export async function checkBusinessScanLimit(businessId: string): Promise<{ allo
     return { allowed: true };
   }
 
-  const statsDoc = await getDoc(doc(db, 'businesses', businessId, 'statistics', 'scans'));
+  const statsDoc = await getDoc(doc(getDb(), 'businesses', businessId, 'statistics', 'scans'));
   const totalScans = statsDoc.data()?.totalScans || 0;
 
   const planStart = data.planStartDate?.toDate?.() || data.createdAt?.toDate?.() || new Date();
@@ -32,7 +32,7 @@ export async function checkBusinessScanLimit(businessId: string): Promise<{ allo
   monthStart.setDate(1);
   monthStart.setHours(0, 0, 0, 0);
 
-  const analyticsDoc = await getDoc(doc(db, 'businesses', businessId, 'analytics', 'monthly'));
+  const analyticsDoc = await getDoc(doc(getDb(), 'businesses', businessId, 'analytics', 'monthly'));
   const monthKey = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
   const monthlyScans = analyticsDoc.data()?.[monthKey]?.scans || totalScans;
 
@@ -50,7 +50,7 @@ export async function validateDynamicQR(
   businessId: string,
   transactionId: string
 ): Promise<{ valid: boolean; message?: string }> {
-  const qrRef = doc(db, 'businesses', businessId, 'qr_codes', transactionId);
+  const qrRef = doc(getDb(), 'businesses', businessId, 'qr_codes', transactionId);
   const qrDoc = await getDoc(qrRef);
 
   if (!qrDoc.exists()) {

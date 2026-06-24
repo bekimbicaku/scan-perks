@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { doc, onSnapshot } from 'firebase/firestore';
-import { auth, db } from '@/lib/firebase';
+import { auth, getDb } from '@/lib/firebase';
 import { getPassportProgress } from '@/lib/features';
 import { GlassCard } from '@/components/ui/GlassBackground';
 import SectionHeader from '@/components/ui/SectionHeader';
@@ -13,7 +13,7 @@ export default function LocalPassportCard() {
 
   useEffect(() => {
     if (!auth.currentUser) return;
-    const unsub = onSnapshot(doc(db, 'users', auth.currentUser.uid), (snap) => {
+    const unsub = onSnapshot(doc(getDb(), 'users', auth.currentUser.uid), (snap) => {
       setCategories(snap.data()?.passportCategories || []);
     });
     return () => unsub();

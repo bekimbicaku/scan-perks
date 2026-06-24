@@ -13,8 +13,10 @@ import AppSplash from '@/components/AppSplash';
 import WebConfigError from '@/components/WebConfigError';
 import WebErrorBoundary from '@/components/WebErrorBoundary';
 import { getFirebaseConfigError, isFirebaseConfigured } from '@/lib/firebaseConfig';
+import { ensureFirebaseServices } from '@/lib/firebase';
 
 export default function RootLayout() {
+  ensureFirebaseServices();
   const [isReady] = useFrameworkReady();
   const configError = getFirebaseConfigError();
 

@@ -1,6 +1,6 @@
 import {
   auth,
-  db,
+  getDb,
   createUserWithEmailAndPassword,
   deleteUser,
   EmailAuthProvider,
@@ -59,7 +59,7 @@ export async function createAccount(
     const user = userCredential.user;
 
     // Store user data in Firestore
-    await setDoc(doc(db, 'users', user.uid), {
+    await setDoc(doc(getDb(), 'users', user.uid), {
       name,
       email,
       verificationCode,
@@ -118,20 +118,20 @@ export async function deleteUserAccount(password: string) {
     await reauthenticateWithCredential(user, credential);
 
     // Create a new batch
-    const batch = writeBatch(db);
+    const batch = writeBatch(getDb());
 
     // Delete user's scans
-    const scansRef = collection(db, 'users', user.uid, 'scans');
+    const scansRef = collection(getDb(), 'users', user.uid, 'scans');
     const scansSnapshot = await getDocs(scansRef);
     scansSnapshot.forEach(doc => batch.delete(doc.ref));
 
     // Delete user's rewards
-    const rewardsRef = collection(db, 'users', user.uid, 'rewards');
+    const rewardsRef = collection(getDb(), 'users', user.uid, 'rewards');
     const rewardsSnapshot = await getDocs(rewardsRef);
     rewardsSnapshot.forEach(doc => batch.delete(doc.ref));
 
     // Delete user document
-    batch.delete(doc(db, 'users', user.uid));
+    batch.delete(doc(getDb(), 'users', user.uid));
 
     // Execute batch delete
     await batch.commit();

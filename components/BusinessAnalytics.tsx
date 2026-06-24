@@ -2,7 +2,7 @@ import { View, Text, StyleSheet, Dimensions, RefreshControl, ScrollView } from '
 import { Users, QrCode, Gift, CreditCard } from 'lucide-react-native';
 import { useState, useEffect, useCallback } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { getDb } from '@/lib/firebase';
 import AnalyticsChart from '@/components/AnalyticsChart';
 import { colors, spacing, typography } from '@/theme';
 
@@ -35,8 +35,8 @@ export default function BusinessAnalytics({ businessId }: BusinessAnalyticsProps
     if (!businessId) return;
 
     // Subscribe to statistics updates
-    const statsRef = doc(db, 'businesses', businessId, 'statistics', 'scans');
-    const rewardsStatsRef = doc(db, 'businesses', businessId, 'statistics', 'rewards');
+    const statsRef = doc(getDb(), 'businesses', businessId, 'statistics', 'scans');
+    const rewardsStatsRef = doc(getDb(), 'businesses', businessId, 'statistics', 'rewards');
     
     const unsubscribeStats = onSnapshot(statsRef, (doc) => {
       if (doc.exists()) {

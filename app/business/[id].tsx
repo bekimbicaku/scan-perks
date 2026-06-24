@@ -26,7 +26,7 @@ import {
   where,
   getDocs,
 } from 'firebase/firestore';
-import { auth, db } from '@/lib/firebase';
+import { auth, getDb } from '@/lib/firebase';
 import GlassBackground, { GlassCard } from '@/components/ui/GlassBackground';
 import GlassButton from '@/components/ui/GlassButton';
 import { FavoriteButton } from '@/components/FavoriteBusinesses';
@@ -51,7 +51,7 @@ export default function BusinessDetailScreen() {
   const loadBusiness = async () => {
     if (!id) return;
     try {
-      const businessDoc = await getDoc(doc(db, 'businesses', id));
+      const businessDoc = await getDoc(doc(getDb(), 'businesses', id));
       if (!businessDoc.exists()) {
         router.back();
         return;
@@ -65,7 +65,7 @@ export default function BusinessDetailScreen() {
 
       const offersSnap = await getDocs(
         query(
-          collection(db, 'businesses', id, 'offers'),
+          collection(getDb(), 'businesses', id, 'offers'),
           where('validUntil', '>', new Date())
         )
       );
@@ -78,7 +78,7 @@ export default function BusinessDetailScreen() {
       );
 
       if (auth.currentUser) {
-        const scanDoc = await getDoc(doc(db, 'users', auth.currentUser.uid, 'scans', id));
+        const scanDoc = await getDoc(doc(getDb(), 'users', auth.currentUser.uid, 'scans', id));
         if (scanDoc.exists()) {
           setUserScans(scanDoc.data().totalScans || 0);
         }

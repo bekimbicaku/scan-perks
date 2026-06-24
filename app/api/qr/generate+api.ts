@@ -1,4 +1,4 @@
-import { auth, db } from '@/lib/firebase';
+import { auth, getDb } from '@/lib/firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import QRCode from 'qrcode';
 
@@ -21,7 +21,7 @@ export async function POST(request: Request) {
     }
 
     // Verify business exists and API key matches
-    const businessRef = doc(db, 'businesses', businessId);
+    const businessRef = doc(getDb(), 'businesses', businessId);
     const businessDoc = await getDoc(businessRef);
 
     if (!businessDoc.exists()) {
@@ -47,7 +47,7 @@ export async function POST(request: Request) {
     const qrImage = await QRCode.toDataURL(JSON.stringify(qrData));
 
     // Store QR code data in Firestore
-    const qrRef = doc(db, 'businesses', businessId, 'qr_codes', transactionId);
+    const qrRef = doc(getDb(), 'businesses', businessId, 'qr_codes', transactionId);
     await setDoc(qrRef, {
       ...qrData,
       used: false,

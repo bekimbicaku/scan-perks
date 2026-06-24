@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Switch, TouchableOpacity } from 'react-native';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { Zap } from 'lucide-react-native';
-import { db } from '@/lib/firebase';
+import { getDb } from '@/lib/firebase';
 import { DEFAULT_HAPPY_HOUR, HappyHourConfig } from '@/lib/features';
 import { GlassCard } from '@/components/ui/GlassBackground';
 import GlassButton from '@/components/ui/GlassButton';
@@ -21,7 +21,7 @@ export default function HappyHourBoost({ businessId }: HappyHourBoostProps) {
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    getDoc(doc(db, 'businesses', businessId, 'settings', 'happyHour')).then((snap) => {
+    getDoc(doc(getDb(), 'businesses', businessId, 'settings', 'happyHour')).then((snap) => {
       if (snap.exists()) setConfig({ ...DEFAULT_HAPPY_HOUR, ...snap.data() });
     });
   }, [businessId]);
@@ -35,7 +35,7 @@ export default function HappyHourBoost({ businessId }: HappyHourBoostProps) {
 
   const save = async () => {
     setSaving(true);
-    await setDoc(doc(db, 'businesses', businessId, 'settings', 'happyHour'), config, { merge: true });
+    await setDoc(doc(getDb(), 'businesses', businessId, 'settings', 'happyHour'), config, { merge: true });
     setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);

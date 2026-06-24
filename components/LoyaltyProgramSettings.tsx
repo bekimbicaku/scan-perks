@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { getDb } from '@/lib/firebase';
 import { Gift, Save, TriangleAlert as AlertTriangle } from 'lucide-react-native';
 
 interface LoyaltySettings {
@@ -30,7 +30,7 @@ export default function LoyaltyProgramSettings({ businessId }: LoyaltyProgramSet
 
   const loadSettings = async () => {
     try {
-      const settingsDoc = await getDoc(doc(db, 'businesses', businessId, 'settings', 'loyalty'));
+      const settingsDoc = await getDoc(doc(getDb(), 'businesses', businessId, 'settings', 'loyalty'));
       if (settingsDoc.exists()) {
         const data = settingsDoc.data();
         setSettings({
@@ -74,7 +74,7 @@ export default function LoyaltyProgramSettings({ businessId }: LoyaltyProgramSet
     setError(null);
 
     try {
-      await setDoc(doc(db, 'businesses', businessId, 'settings', 'loyalty'), {
+      await setDoc(doc(getDb(), 'businesses', businessId, 'settings', 'loyalty'), {
         scansRequired: settings.scansRequired,
         reward: settings.reward,
         lastModified: new Date(),

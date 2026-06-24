@@ -1,9 +1,9 @@
 import { doc, getDoc } from 'firebase/firestore';
-import { db } from './firebase';
+import { getDb } from './firebase';
 
 export async function generateQRData(businessId: string, type: 'static' | 'dynamic', transactionId?: string) {
   // Verify business exists
-  const businessRef = doc(db, 'businesses', businessId);
+  const businessRef = doc(getDb(), 'businesses', businessId);
   const businessDoc = await getDoc(businessRef);
 
   if (!businessDoc.exists()) {

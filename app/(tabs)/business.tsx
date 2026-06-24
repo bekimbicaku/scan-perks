@@ -22,7 +22,7 @@ import GlassBackground from '@/components/ui/GlassBackground';
 import { colors, spacing } from '@/theme';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { auth, db, storage, deleteBusiness } from '@/lib/firebase';
+import { auth, getDb, getStorageInstance, deleteBusiness } from '@/lib/firebase';
 import { router } from 'expo-router';
 
 type BusinessType = 'Bar' | 'Pizzeria' | 'Restaurant' | 'Cafe' | 'Other';
@@ -121,7 +121,7 @@ export default function BusinessScreen() {
         return;
       }
 
-      const businessDoc = await getDoc(doc(db, 'businesses', userId));
+      const businessDoc = await getDoc(doc(getDb(), 'businesses', userId));
       if (businessDoc.exists()) {
         setIsRegistered(true);
         setBusinessData({
@@ -171,7 +171,7 @@ export default function BusinessScreen() {
       if (!userId) throw new Error('Not authenticated');
 
       // Now create the business with all data including QR type
-      await setDoc(doc(db, 'businesses', userId), {
+      await setDoc(doc(getDb(), 'businesses', userId), {
         ...businessData,
         qrType,
         planStatus: 'active',
@@ -243,7 +243,7 @@ export default function BusinessScreen() {
         const userId = auth.currentUser?.uid;
         if (!userId) throw new Error('Not authenticated');
 
-        const logoRef = ref(storage, `business-logos/${userId}`);
+        const logoRef = ref(getStorageInstance(), `business-logos/${userId}`);
         await uploadBytes(logoRef, blob);
         const logoUrl = await getDownloadURL(logoRef);
 

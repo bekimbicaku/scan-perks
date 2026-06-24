@@ -4,7 +4,7 @@ import { CreditCard, X } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { auth } from '@/lib/firebase';
 import { onSnapshot, doc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { getDb } from '@/lib/firebase';
 
 interface PayPalPaymentModalProps {
   visible: boolean;
@@ -33,7 +33,7 @@ export default function PayPalPaymentModal({
     if (!auth.currentUser) return;
 
     // Listen for changes in the user document
-    const unsubscribe = onSnapshot(doc(db, 'users', auth.currentUser.uid), (doc) => {
+    const unsubscribe = onSnapshot(doc(getDb(), 'users', auth.currentUser.uid), (doc) => {
       if (doc.exists()) {
         const data = doc.data();
         // Check if subscription is active and payment was successful

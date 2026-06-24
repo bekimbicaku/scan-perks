@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { doc, setDoc } from 'firebase/firestore';
-import { createUserWithEmailAndPassword, auth, db } from '@/lib/firebase';
+import { createUserWithEmailAndPassword, auth, getDb } from '@/lib/firebase';
 import { generateReferralCode, isValidReferralCode } from '@/lib/referral';
 import { processReferralSignup } from '@/lib/engagement';
 import { registerForPushNotifications } from '@/lib/notifications';
@@ -49,7 +49,7 @@ export default function RegisterScreen() {
       const uid = userCredential.user.uid;
       const referralCode = generateReferralCode(uid);
 
-      await setDoc(doc(db, 'users', uid), {
+      await setDoc(doc(getDb(), 'users', uid), {
         name,
         surname,
         email,

@@ -6,7 +6,7 @@ import {
   runTransaction,
   updateDoc,
 } from 'firebase/firestore';
-import { auth, db } from './firebase';
+import { auth, getDb } from './firebase';
 import {
   getLoyaltySettings,
   calculateScanProgress,
@@ -48,7 +48,7 @@ export async function processBusinessScan(rawData: string): Promise<ScanResult> 
   const { businessId, transactionId } = qrData;
   const type = qrData.type || (transactionId ? 'dynamic' : 'static');
 
-  const businessRef = doc(db, 'businesses', businessId);
+  const businessRef = doc(getDb(), 'businesses', businessId);
   const businessDoc = await getDoc(businessRef);
 
   if (!businessDoc.exists()) {
@@ -68,7 +68,7 @@ export async function processBusinessScan(rawData: string): Promise<ScanResult> 
     }
   }
 
-  const userScansRef = doc(db, 'users', user.uid, 'scans', businessId);
+  const userScansRef = doc(getDb(), 'users', user.uid, 'scans', businessId);
   const userScansDoc = await getDoc(userScansRef);
 
   if (userScansDoc.exists()) {
@@ -81,14 +81,14 @@ export async function processBusinessScan(rawData: string): Promise<ScanResult> 
   const loyalty = await getLoyaltySettings(businessId);
   const isNewCustomer = !userScansDoc.exists();
 
-  const happyHourDoc = await getDoc(doc(db, 'businesses', businessId, 'settings', 'happyHour'));
+  const happyHourDoc = await getDoc(doc(getDb(), 'businesses', businessId, 'settings', 'happyHour'));
   const happyHour: HappyHourConfig = happyHourDoc.exists()
     ? { ...DEFAULT_HAPPY_HOUR, ...happyHourDoc.data() }
     : DEFAULT_HAPPY_HOUR;
   const happyHourActive = isHappyHourActive(happyHour);
   const scanIncrement = happyHourActive ? happyHour.multiplier : 1;
 
-  await runTransaction(db, async (transaction) => {
+  await runTransaction(getDb(), async (transaction) => {
     transaction.set(
       userScansRef,
       {
@@ -99,7 +99,7 @@ export async function processBusinessScan(rawData: string): Promise<ScanResult> 
       { merge: true }
     );
 
-    const businessStatsRef = doc(db, 'businesses', businessId, 'statistics', 'scans');
+    const businessStatsRef = doc(getDb(), 'businesses', businessId, 'statistics', 'scans');
     transaction.set(
       businessStatsRef,
       {
@@ -110,7 +110,7 @@ export async function processBusinessScan(rawData: string): Promise<ScanResult> 
       { merge: true }
     );
 
-    const customerRef = doc(db, 'businesses', businessId, 'customers', user.uid);
+    const customerRef = doc(getDb(), 'businesses', businessId, 'customers', user.uid);
     transaction.set(
       customerRef,
       {
@@ -123,7 +123,7 @@ export async function processBusinessScan(rawData: string): Promise<ScanResult> 
 
     const today = new Date().toISOString().split('T')[0];
     const monthKey = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
-    const businessAnalyticsRef = doc(db, 'businesses', businessId, 'analytics', 'daily');
+    const businessAnalyticsRef = doc(getDb(), 'businesses', businessId, 'analytics', 'daily');
     transaction.set(
       businessAnalyticsRef,
       {
@@ -133,7 +133,7 @@ export async function processBusinessScan(rawData: string): Promise<ScanResult> 
       { merge: true }
     );
 
-    const monthlyRef = doc(db, 'businesses', businessId, 'analytics', 'monthly');
+    const monthlyRef = doc(getDb(), 'businesses', businessId, 'analytics', 'monthly');
     transaction.set(
       monthlyRef,
       {
@@ -144,7 +144,7 @@ export async function processBusinessScan(rawData: string): Promise<ScanResult> 
   });
 
   if (type === 'dynamic' && transactionId) {
-    await updateDoc(doc(db, 'businesses', businessId, 'qr_codes', transactionId), {
+    await updateDoc(doc(getDb(), 'businesses', businessId, 'qr_codes', transactionId), {
       used: true,
       usedAt: new Date(),
       usedBy: user.uid,
@@ -168,7 +168,7 @@ export async function processBusinessScan(rawData: string): Promise<ScanResult> 
   const rewardEtaDays = estimateRewardEtaDays(totalScans, loyalty.scansRequired, scanHistory);
 
   if (progress.newRewardEarned) {
-    const rewardRef = doc(db, 'users', user.uid, 'rewards', `${businessId}_${totalScans}`);
+    const rewardRef = doc(getDb(), 'users', user.uid, 'rewards', `${businessId}_${totalScans}`);
     await setDoc(rewardRef, {
       businessId,
       businessName: businessData.name,
@@ -179,7 +179,7 @@ export async function processBusinessScan(rawData: string): Promise<ScanResult> 
       expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
     });
 
-    const businessRewardsRef = doc(db, 'businesses', businessId, 'statistics', 'rewards');
+    const businessRewardsRef = doc(getDb(), 'businesses', businessId, 'statistics', 'rewards');
     await setDoc(
       businessRewardsRef,
       {
@@ -225,12 +225,12 @@ export async function processRewardRedemption(rawData: string, expectedBusinessI
     throw new Error('This reward belongs to a different business');
   }
 
-  const businessDoc = await getDoc(doc(db, 'businesses', expectedBusinessId));
+  const businessDoc = await getDoc(doc(getDb(), 'businesses', expectedBusinessId));
   if (!businessDoc.exists() || businessDoc.data().ownerId !== staffUser.uid) {
     throw new Error('You are not authorized to redeem rewards for this business');
   }
 
-  const rewardRef = doc(db, 'users', parsed.userId, 'rewards', parsed.rewardId);
+  const rewardRef = doc(getDb(), 'users', parsed.userId, 'rewards', parsed.rewardId);
   const rewardDoc = await getDoc(rewardRef);
 
   if (!rewardDoc.exists()) {
@@ -253,7 +253,7 @@ export async function processRewardRedemption(rawData: string, expectedBusinessI
     redeemedBy: staffUser.uid,
   });
 
-  const businessRewardsRef = doc(db, 'businesses', expectedBusinessId, 'statistics', 'rewards');
+  const businessRewardsRef = doc(getDb(), 'businesses', expectedBusinessId, 'statistics', 'rewards');
   await setDoc(
     businessRewardsRef,
     {

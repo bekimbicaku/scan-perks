@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { Flame, Trophy, Target } from 'lucide-react-native';
-import { auth, db } from '@/lib/firebase';
+import { auth, getDb } from '@/lib/firebase';
 import { GlassCard } from '@/components/ui/GlassBackground';
 import { colors, spacing, typography } from '@/theme';
 
@@ -15,7 +15,7 @@ export default function CustomerEngagementCard() {
   useEffect(() => {
     if (!auth.currentUser) return;
 
-    const unsub = onSnapshot(doc(db, 'users', auth.currentUser.uid), (snap) => {
+    const unsub = onSnapshot(doc(getDb(), 'users', auth.currentUser.uid), (snap) => {
       const data = snap.data();
       setStreak(data?.scanStreak || 0);
       setLongestStreak(data?.longestStreak || 0);

@@ -1,5 +1,5 @@
 import { doc, getDoc } from 'firebase/firestore';
-import { db } from './firebase';
+import { getDb } from './firebase';
 
 export const DEFAULT_SCANS_REQUIRED = 10;
 
@@ -9,7 +9,7 @@ export interface LoyaltySettings {
 }
 
 export async function getLoyaltySettings(businessId: string): Promise<LoyaltySettings> {
-  const settingsDoc = await getDoc(doc(db, 'businesses', businessId, 'settings', 'loyalty'));
+  const settingsDoc = await getDoc(doc(getDb(), 'businesses', businessId, 'settings', 'loyalty'));
   if (settingsDoc.exists()) {
     const data = settingsDoc.data();
     return {

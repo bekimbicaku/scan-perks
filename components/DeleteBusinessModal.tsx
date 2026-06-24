@@ -3,7 +3,7 @@ import { Modal, View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView 
 import { TriangleAlert as AlertTriangle, X, Save, Building2 } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { doc, updateDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { getDb } from '@/lib/firebase';
 
 interface BusinessHours {
   open: string;
@@ -105,7 +105,7 @@ export default function DeleteBusinessModal({
     setSuccess(false);
 
     try {
-      const businessRef = doc(db, 'businesses', businessId);
+      const businessRef = doc(getDb(), 'businesses', businessId);
       await updateDoc(businessRef, {
         name: settings.name,
         address: settings.address,

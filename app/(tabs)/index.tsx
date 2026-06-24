@@ -21,7 +21,7 @@ import {
   doc,
   getDoc,
 } from 'firebase/firestore';
-import { auth, db } from '@/lib/firebase';
+import { auth, getDb } from '@/lib/firebase';
 import {
   MapPin,
   Star,
@@ -99,7 +99,7 @@ export default function HomeScreen() {
   const loadUserData = useCallback(() => {
     if (!auth.currentUser) return;
 
-    const scansRef = collection(db, 'users', auth.currentUser.uid, 'scans');
+    const scansRef = collection(getDb(), 'users', auth.currentUser.uid, 'scans');
     const scansQuery = query(scansRef, orderBy('lastScan', 'desc'));
 
     const unsubscribe = onSnapshot(
@@ -109,7 +109,7 @@ export default function HomeScreen() {
           try {
             let points = 0;
             const promises = snapshot.docs.map(async (scanDoc) => {
-              const businessRef = doc(db, 'businesses', scanDoc.id);
+              const businessRef = doc(getDb(), 'businesses', scanDoc.id);
               const businessDoc = await getDoc(businessRef);
               const loyalty = await getLoyaltySettings(scanDoc.id);
 
@@ -182,7 +182,7 @@ export default function HomeScreen() {
   const loadNearbyBusinesses = async () => {
     try {
       const businessesQuery = query(
-        collection(db, 'businesses'),
+        collection(getDb(), 'businesses'),
         where('isActive', '==', true),
         orderBy('__name__'),
         limit(15)

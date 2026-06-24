@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { doc, onSnapshot } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { getDb } from '@/lib/firebase';
 import { colors, spacing, typography, radius } from '@/theme';
 
 interface AnalyticsChartProps {
@@ -14,7 +14,7 @@ export default function AnalyticsChart({ businessId }: AnalyticsChartProps) {
   useEffect(() => {
     if (!businessId) return;
 
-    const analyticsRef = doc(db, 'businesses', businessId, 'analytics', 'daily');
+    const analyticsRef = doc(getDb(), 'businesses', businessId, 'analytics', 'daily');
     const unsubscribe = onSnapshot(analyticsRef, (snap) => {
       if (!snap.exists()) {
         setDailyData([]);

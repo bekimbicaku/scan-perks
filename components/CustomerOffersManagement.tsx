@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, Platform } from 'react-native';
 import { doc, collection, query, where, getDocs, addDoc, Timestamp, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { getDb } from '@/lib/firebase';
 import { Tag, Calendar, Send, ChevronRight, Users } from 'lucide-react-native';
 
 interface Offer {
@@ -43,7 +43,7 @@ export default function CustomerOffersManagement({ businessId }: CustomerOffersM
 
   const checkBusinessPlan = async () => {
     try {
-      const businessDoc = await getDoc(doc(db, 'businesses', businessId));
+      const businessDoc = await getDoc(doc(getDb(), 'businesses', businessId));
       if (businessDoc.exists()) {
         const data = businessDoc.data();
         setIsPremium(data.plan === 'premium');
@@ -55,7 +55,7 @@ export default function CustomerOffersManagement({ businessId }: CustomerOffersM
 
   const loadOffers = async () => {
     try {
-      const offersRef = collection(db, 'businesses', businessId, 'offers');
+      const offersRef = collection(getDb(), 'businesses', businessId, 'offers');
       
       // Get all offers from the past week
       const weekAgo = new Date();
@@ -146,7 +146,7 @@ export default function CustomerOffersManagement({ businessId }: CustomerOffersM
       const validUntil = new Date();
       validUntil.setDate(validUntil.getDate() + parseInt(newOffer.validDays));
 
-      await addDoc(collection(db, 'businesses', businessId, 'offers'), {
+      await addDoc(collection(getDb(), 'businesses', businessId, 'offers'), {
         ...newOffer,
         validFrom: Timestamp.fromDate(validFrom),
         validUntil: Timestamp.fromDate(validUntil),

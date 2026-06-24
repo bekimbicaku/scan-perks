@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { Gift, Clock, CheckCircle, QrCode } from 'lucide-react-native';
-import { auth, db } from '@/lib/firebase';
+import { auth, getDb } from '@/lib/firebase';
 import { GlassCard } from '@/components/ui/GlassBackground';
 import EmptyState from '@/components/ui/EmptyState';
 import RewardQRModal from '@/components/RewardQRModal';
@@ -26,7 +26,7 @@ export default function RewardsWallet() {
   useEffect(() => {
     if (!auth.currentUser) return;
 
-    const rewardsRef = collection(db, 'users', auth.currentUser.uid, 'rewards');
+    const rewardsRef = collection(getDb(), 'users', auth.currentUser.uid, 'rewards');
     const q = query(rewardsRef, orderBy('createdAt', 'desc'));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {

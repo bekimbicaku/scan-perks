@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import ScreenContainer from '@/components/ui/ScreenContainer';
-import { signOut, auth, db } from '@/lib/firebase';
+import { signOut, auth, getDb } from '@/lib/firebase';
 import { router, useRootNavigationState } from 'expo-router';
 import { LogOut, Tag, TriangleAlert as AlertTriangle, User } from 'lucide-react-native';
 import { collection, query, where, getDocs, onSnapshot, doc, getDoc } from 'firebase/firestore';
@@ -45,7 +45,7 @@ export default function ProfileScreen() {
       return;
     }
 
-    getDoc(doc(db, 'users', auth.currentUser.uid)).then((userDoc) => {
+    getDoc(doc(getDb(), 'users', auth.currentUser.uid)).then((userDoc) => {
       if (userDoc.exists()) {
         const data = userDoc.data();
         setUserName(data.name || auth.currentUser?.email?.split('@')[0] || 'User');
@@ -55,13 +55,13 @@ export default function ProfileScreen() {
       }
     });
 
-    const rewardsRef = collection(db, 'users', auth.currentUser.uid, 'rewards');
+    const rewardsRef = collection(getDb(), 'users', auth.currentUser.uid, 'rewards');
     const unsubscribeRewards = onSnapshot(rewardsRef, (snapshot) => {
       const active = snapshot.docs.filter((d) => !d.data().redeemed).length;
       setStats((prev) => ({ ...prev, totalRewards: active }));
     });
 
-    const userStatsRef = collection(db, 'users', auth.currentUser.uid, 'scans');
+    const userStatsRef = collection(getDb(), 'users', auth.currentUser.uid, 'scans');
     const unsubscribeStats = onSnapshot(userStatsRef, (snapshot) => {
       const points = snapshot.docs.reduce((total, d) => total + (d.data().totalScans || 0), 0);
       setStats((prev) => ({ ...prev, totalPoints: points }));
@@ -77,7 +77,7 @@ export default function ProfileScreen() {
   const loadOffers = async () => {
     if (!auth.currentUser) return;
     try {
-      const scansRef = collection(db, 'users', auth.currentUser.uid, 'scans');
+      const scansRef = collection(getDb(), 'users', auth.currentUser.uid, 'scans');
       const scansSnapshot = await getDocs(scansRef);
       const businessIds = scansSnapshot.docs.map((d) => d.id);
 
@@ -88,11 +88,11 @@ export default function ProfileScreen() {
 
       const offersPromises = businessIds.map(async (businessId) => {
         const offersQuery = query(
-          collection(db, 'businesses', businessId, 'offers'),
+          collection(getDb(), 'businesses', businessId, 'offers'),
           where('validUntil', '>', new Date())
         );
         const offersSnapshot = await getDocs(offersQuery);
-        const businessDoc = await getDoc(doc(db, 'businesses', businessId));
+        const businessDoc = await getDoc(doc(getDb(), 'businesses', businessId));
         const businessData = businessDoc.data();
 
         return offersSnapshot.docs.map((d) => ({

@@ -2,13 +2,15 @@ import { Redirect } from 'expo-router';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useEffect, useState } from 'react';
 import AppSplash from '@/components/AppSplash';
-import { auth } from '@/lib/firebase';
+import { auth, ensureFirebaseServices } from '@/lib/firebase';
 import { isFirebaseConfigured } from '@/lib/firebaseConfig';
 
 export default function Index() {
   const [target, setTarget] = useState<'loading' | 'login' | 'tabs'>('loading');
 
   useEffect(() => {
+    ensureFirebaseServices();
+
     if (!isFirebaseConfigured()) {
       setTarget('login');
       return;

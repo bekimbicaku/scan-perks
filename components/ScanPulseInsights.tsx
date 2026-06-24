@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { Activity } from 'lucide-react-native';
-import { db } from '@/lib/firebase';
+import { getDb } from '@/lib/firebase';
 import { PULSE_EMOJI, PulseMood } from '@/lib/features';
 import { GlassCard } from '@/components/ui/GlassBackground';
 import SectionHeader from '@/components/ui/SectionHeader';
@@ -16,7 +16,7 @@ export default function ScanPulseInsights({ businessId }: ScanPulseInsightsProps
   const [pulse, setPulse] = useState({ love: 0, good: 0, meh: 0, total: 0 });
 
   useEffect(() => {
-    const unsub = onSnapshot(doc(db, 'businesses', businessId, 'pulse', 'summary'), (snap) => {
+    const unsub = onSnapshot(doc(getDb(), 'businesses', businessId, 'pulse', 'summary'), (snap) => {
       const d = snap.data();
       setPulse({
         love: d?.love || 0,

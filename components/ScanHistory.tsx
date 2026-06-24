@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { collection, query, orderBy, limit, onSnapshot, doc, getDoc } from 'firebase/firestore';
 import { Clock, Building2 } from 'lucide-react-native';
-import { auth, db } from '@/lib/firebase';
+import { auth, getDb } from '@/lib/firebase';
 import { GlassCard } from '@/components/ui/GlassBackground';
 import { colors, spacing, typography } from '@/theme';
 
@@ -19,13 +19,13 @@ export default function ScanHistory() {
   useEffect(() => {
     if (!auth.currentUser) return;
 
-    const scansRef = collection(db, 'users', auth.currentUser.uid, 'scans');
+    const scansRef = collection(getDb(), 'users', auth.currentUser.uid, 'scans');
     const q = query(scansRef, orderBy('lastScan', 'desc'), limit(10));
 
     const unsubscribe = onSnapshot(q, async (snapshot) => {
       const entries = await Promise.all(
         snapshot.docs.map(async (scanDoc) => {
-          const businessDoc = await getDoc(doc(db, 'businesses', scanDoc.id));
+          const businessDoc = await getDoc(doc(getDb(), 'businesses', scanDoc.id));
           return {
             id: scanDoc.id,
             businessName: businessDoc.data()?.name || 'Business',

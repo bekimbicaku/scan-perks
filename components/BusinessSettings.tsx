@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Switch } from 'react-native';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { Save, Building2, Clock, MapPin, Phone, Mail } from 'lucide-react-native';
-import { db } from '@/lib/firebase';
+import { getDb } from '@/lib/firebase';
 import { GlassCard } from '@/components/ui/GlassBackground';
 import GlassInput from '@/components/ui/GlassInput';
 import GlassButton from '@/components/ui/GlassButton';
@@ -59,7 +59,7 @@ export default function BusinessSettings({ businessId }: BusinessSettingsProps) 
   }, [businessId]);
 
   const loadSettings = async () => {
-    const snap = await getDoc(doc(db, 'businesses', businessId));
+    const snap = await getDoc(doc(getDb(), 'businesses', businessId));
     if (!snap.exists()) return;
     const data = snap.data();
     setForm({
@@ -88,7 +88,7 @@ export default function BusinessSettings({ businessId }: BusinessSettingsProps) 
     setLoading(true);
     setError(null);
     try {
-      await updateDoc(doc(db, 'businesses', businessId), {
+      await updateDoc(doc(getDb(), 'businesses', businessId), {
         name: form.name,
         description: form.description,
         phone: form.contact.phone,

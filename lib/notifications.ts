@@ -1,7 +1,7 @@
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
-import { auth, db } from './firebase';
+import { auth, getDb } from './firebase';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 
 function isPushSupported() {
@@ -36,7 +36,7 @@ export async function registerForPushNotifications() {
 
     if (auth.currentUser) {
       await setDoc(
-        doc(db, 'users', auth.currentUser.uid),
+        doc(getDb(), 'users', auth.currentUser.uid),
         {
           expoPushToken: expoPushToken.data,
           lastTokenUpdate: serverTimestamp(),

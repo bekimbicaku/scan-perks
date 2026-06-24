@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { collection, getDocs } from 'firebase/firestore';
 import { Users, UserX, UserCheck } from 'lucide-react-native';
-import { db } from '@/lib/firebase';
+import { getDb } from '@/lib/firebase';
 import { GlassCard } from '@/components/ui/GlassBackground';
 import { colors, spacing, typography } from '@/theme';
 
@@ -26,7 +26,7 @@ export default function CustomerSegmentation({ businessId }: CustomerSegmentatio
 
   const loadSegments = async () => {
     try {
-      const customersSnap = await getDocs(collection(db, 'businesses', businessId, 'customers'));
+      const customersSnap = await getDocs(collection(getDb(), 'businesses', businessId, 'customers'));
       let active = 0;
       let inactive = 0;
       let loyal = 0;

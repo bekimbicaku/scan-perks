@@ -23,47 +23,45 @@ import {
 } from 'firebase/firestore';
 import { FirebaseStorage, getStorage } from 'firebase/storage';
 
-let dbInstance: Firestore | undefined;
-let storageInstance: FirebaseStorage | undefined;
+export let db: Firestore = undefined as unknown as Firestore;
+export let storage: FirebaseStorage = undefined as unknown as FirebaseStorage;
 
-function ensureDb(): Firestore {
-  if (!dbInstance) {
-    if (!isFirebaseConfigured()) {
-      throw new Error('Firebase is not configured.');
-    }
-    dbInstance = getFirestore(getAppInstance());
+export function ensureFirebaseServices(): void {
+  if (db) {
+    return;
   }
-  return dbInstance;
-}
 
-function ensureStorage(): FirebaseStorage {
-  if (!storageInstance) {
-    if (!isFirebaseConfigured()) {
-      throw new Error('Firebase is not configured.');
-    }
-    storageInstance = getStorage(getAppInstance());
+  if (!isFirebaseConfigured()) {
+    return;
   }
-  return storageInstance;
+
+  const appInstance = getAppInstance();
+  db = getFirestore(appInstance);
+  storage = getStorage(appInstance);
 }
 
-function createFirebaseProxy<T extends object>(getInstance: () => T) {
-  return new Proxy({} as T, {
-    get(_target, prop) {
-      if (!isFirebaseConfigured() || typeof window === 'undefined') {
-        return undefined;
-      }
-      const instance = getInstance();
-      const value = Reflect.get(instance, prop, instance);
-      return typeof value === 'function' ? (value as (...args: unknown[]) => unknown).bind(instance) : value;
-    },
-  });
+export function getDb(): Firestore {
+  ensureFirebaseServices();
+  if (!db) {
+    throw new Error('Firestore is not initialized.');
+  }
+  return db;
 }
 
-export const db = createFirebaseProxy(ensureDb);
-export const storage = createFirebaseProxy(ensureStorage);
+export function getStorageInstance(): FirebaseStorage {
+  ensureFirebaseServices();
+  if (!storage) {
+    throw new Error('Firebase Storage is not initialized.');
+  }
+  return storage;
+}
+
+if (typeof window !== 'undefined') {
+  ensureFirebaseServices();
+}
 
 export async function deleteBusiness(businessId: string) {
-  const firestore = ensureDb();
+  const firestore = getDb();
   const batch = writeBatch(firestore);
 
   const subcollections = ['offers', 'qr_codes', 'statistics', 'settings', 'analytics'];

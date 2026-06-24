@@ -8,7 +8,7 @@ import {
   updateDoc,
   where,
 } from 'firebase/firestore';
-import { db } from './firebase';
+import { getDb } from './firebase';
 
 export const REFERRAL_BONUS_SCANS = 2;
 export const REFERRER_REWARD_SCANS = 1;
@@ -17,7 +17,7 @@ export async function processReferralSignup(userId: string, referrerCode: string
   const code = referrerCode.trim().toUpperCase();
   if (!code) return;
 
-  const referrersQuery = query(collection(db, 'users'), where('referralCode', '==', code));
+  const referrersQuery = query(collection(getDb(), 'users'), where('referralCode', '==', code));
   const referrersSnapshot = await getDocs(referrersQuery);
   if (referrersSnapshot.empty) return;
 
@@ -30,7 +30,7 @@ export async function processReferralSignup(userId: string, referrerCode: string
     referralPoints: increment(5),
   });
 
-  await updateDoc(doc(db, 'users', userId), {
+  await updateDoc(doc(getDb(), 'users', userId), {
     referralBonusScans: REFERRAL_BONUS_SCANS,
     bonusPoints: increment(5),
   });
@@ -43,7 +43,7 @@ export interface StreakResult {
 }
 
 export async function updateScanStreak(userId: string): Promise<StreakResult> {
-  const userRef = doc(db, 'users', userId);
+  const userRef = doc(getDb(), 'users', userId);
   const userDoc = await getDoc(userRef);
   const data = userDoc.data() || {};
 
@@ -83,7 +83,7 @@ export async function updateScanStreak(userId: string): Promise<StreakResult> {
 }
 
 export async function applyReferralBonusScan(userId: string): Promise<boolean> {
-  const userRef = doc(db, 'users', userId);
+  const userRef = doc(getDb(), 'users', userId);
   const userDoc = await getDoc(userRef);
   const bonus = userDoc.data()?.referralBonusScans || 0;
   if (bonus <= 0) return false;
@@ -93,7 +93,7 @@ export async function applyReferralBonusScan(userId: string): Promise<boolean> {
 }
 
 export async function toggleFavorite(userId: string, businessId: string): Promise<string[]> {
-  const userRef = doc(db, 'users', userId);
+  const userRef = doc(getDb(), 'users', userId);
   const userDoc = await getDoc(userRef);
   const favorites: string[] = userDoc.data()?.favorites || [];
 

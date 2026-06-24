@@ -1,4 +1,4 @@
-import { auth, db } from '@/lib/firebase';
+import { auth, getDb } from '@/lib/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { sendPushNotification } from '@/lib/notifications';
 
@@ -21,7 +21,7 @@ export async function POST(request: Request) {
 
     // Get all users who have scanned this business
     const scansQuery = query(
-      collection(db, 'users'),
+      collection(getDb(), 'users'),
       where(`scans.${businessId}.totalScans`, '>', 0)
     );
 

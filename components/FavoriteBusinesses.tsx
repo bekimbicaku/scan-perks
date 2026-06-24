@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView } from 'rea
 import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { Heart, MapPin } from 'lucide-react-native';
 import { router } from 'expo-router';
-import { auth, db } from '@/lib/firebase';
+import { auth, getDb } from '@/lib/firebase';
 import { toggleFavorite } from '@/lib/engagement';
 import { GlassCard } from '@/components/ui/GlassBackground';
 import SectionHeader from '@/components/ui/SectionHeader';
@@ -23,13 +23,13 @@ export default function FavoriteBusinesses() {
   useEffect(() => {
     if (!auth.currentUser) return;
 
-    const unsub = onSnapshot(doc(db, 'users', auth.currentUser.uid), async (snap) => {
+    const unsub = onSnapshot(doc(getDb(), 'users', auth.currentUser.uid), async (snap) => {
       const ids: string[] = snap.data()?.favorites || [];
       setFavoriteIds(ids);
 
       const loaded = await Promise.all(
         ids.slice(0, 8).map(async (id) => {
-          const biz = await getDoc(doc(db, 'businesses', id));
+          const biz = await getDoc(doc(getDb(), 'businesses', id));
           if (!biz.exists()) return null;
           const d = biz.data();
           return {
@@ -78,7 +78,7 @@ export function FavoriteButton({ businessId }: { businessId: string }) {
 
   useEffect(() => {
     if (!auth.currentUser) return;
-    const unsub = onSnapshot(doc(db, 'users', auth.currentUser.uid), (snap) => {
+    const unsub = onSnapshot(doc(getDb(), 'users', auth.currentUser.uid), (snap) => {
       const ids: string[] = snap.data()?.favorites || [];
       setIsFavorite(ids.includes(businessId));
     });

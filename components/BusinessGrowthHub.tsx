@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { View, Text, StyleSheet, Share, TouchableOpacity, Alert } from 'react-native';
 import { collection, addDoc, Timestamp } from 'firebase/firestore';
 import { Share2, Sparkles, Heart, Bell } from 'lucide-react-native';
-import { db } from '@/lib/firebase';
+import { getDb } from '@/lib/firebase';
 import { getBusinessShareMessage } from '@/lib/referral';
 import { GlassCard } from '@/components/ui/GlassBackground';
 import GlassButton from '@/components/ui/GlassButton';
@@ -33,7 +33,7 @@ export default function BusinessGrowthHub({ businessId, businessName }: Business
       const validUntil = new Date();
       validUntil.setDate(validUntil.getDate() + 7);
 
-      await addDoc(collection(db, 'businesses', businessId, 'offers'), {
+      await addDoc(collection(getDb(), 'businesses', businessId, 'offers'), {
         title: 'We miss you! Come back for a special perk',
         description: 'Exclusive offer for returning customers. Scan today and enjoy a reward on us.',
         validFrom: Timestamp.now(),

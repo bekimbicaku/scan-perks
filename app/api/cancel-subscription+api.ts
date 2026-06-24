@@ -1,4 +1,4 @@
-import { auth, db } from '@/lib/firebase';
+import { auth, getDb } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import Stripe from 'stripe';
 
@@ -24,7 +24,7 @@ export async function POST(request: Request) {
     }
 
     // Verify business ownership
-    const businessDoc = await getDoc(doc(db, 'businesses', businessId));
+    const businessDoc = await getDoc(doc(getDb(), 'businesses', businessId));
     if (!businessDoc.exists() || businessDoc.data().ownerId !== decodedToken.uid) {
       return new Response('Not authorized to cancel this subscription', { status: 403 });
     }
