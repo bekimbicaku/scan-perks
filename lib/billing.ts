@@ -7,16 +7,17 @@ const CLOUD_FUNCTION_URL =
   'https://europe-west1-scanperks-cc721.cloudfunctions.net/createBillingPortalSession';
 
 function getBillingEndpoints(): string[] {
-  const endpoints: string[] = [BILLING_API_PATH];
+  const endpoints: string[] = [];
+  const isLocalDev =
+    __DEV__ ||
+    (typeof window !== 'undefined' &&
+      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'));
 
-  if (!__DEV__) {
-    endpoints.push(CLOUD_FUNCTION_URL);
-
-    const configured = process.env.EXPO_PUBLIC_API_URL?.replace(/\/$/, '');
-    if (configured) {
-      endpoints.unshift(`${configured}${BILLING_API_PATH}`);
-    }
+  if (isLocalDev) {
+    endpoints.push(BILLING_API_PATH);
   }
+
+  endpoints.push(CLOUD_FUNCTION_URL);
 
   return [...new Set(endpoints)];
 }
@@ -26,7 +27,7 @@ export function getBillingReturnUrl(): string {
     return `${window.location.origin}/business`;
   }
 
-  return 'https://scanperks.app/business';
+  return 'https://app.scan-perks.com/business';
 }
 
 async function parseBillingError(response: Response, payload: unknown): Promise<string> {

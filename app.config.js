@@ -37,7 +37,7 @@ module.exports = {
     },
     web: {
       bundler: 'metro',
-      output: 'server',
+      output: process.env.EXPO_EXPORT_STATIC === '1' ? 'static' : 'server',
       favicon: './assets/images/favicon.png',
       name: 'Scan Perks',
       shortName: 'Scan Perks',
