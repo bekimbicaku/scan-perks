@@ -1,0 +1,73 @@
+Përshkrimi i projektit:
+ScanPerks është një aplikacion mobil i ndërtuar me React Native dhe Expo, që lejon përdoruesit të skanojnë QR code unike të bizneseve për të fituar shpërblime (p.sh. ulje ose produkte falas). Të dhënat ruhen dhe menaxhohen në Firebase (Firestore, Auth, dhe Storage).
+
+Objektivat kryesore të projektit:
+QR Code Scanning:
+
+Çdo biznes ka një QR code unik që përmban businessId.
+
+Skanimi ndodh vetëm përmes pajisjeve mobile (jo web).
+
+Përdor expo-barcode-scanner për të realizuar funksionalitetin.
+
+Regjistrimi i skanimeve në Firestore:
+
+Në koleksionin users/{userId}/scans/{businessId} ruhet:
+
+businessId
+
+scannedAt (serverTimestamp)
+
+scanCount
+
+rewardUnlocked
+
+rewardRedeemed
+
+Logjikë e skanimit:
+
+Nëse është skanimi i parë për një biznes → krijo dokument të ri.
+
+Nëse është skanuar më parë → përdor increment(1) për scanCount.
+
+Faqja Kryesore:
+
+Liston të gjitha bizneset e skanuara nga përdoruesi.
+
+Për secilin biznes shfaq:
+
+Emrin (name)
+
+Adresën (address)
+
+Logon (logoUrl)
+
+scanCount aktual
+
+rewardThreshold i biznesit (nga koleksioni businesses)
+
+Firebase Setup:
+
+Firestore për ruajtje të të dhënave.
+
+Auth për identifikimin e përdoruesve.
+
+Storage për ruajtjen e logove të bizneseve.
+
+Rregullat e Firebase: vetëm përdoruesi i regjistruar mund të lexojë/shkruajë skanimet e veta.
+
+Stack & Teknologji:
+React Native (Expo)
+
+Firebase (Firestore, Auth, Storage)
+
+expo-barcode-scanner
+
+react-native-qrcode-svg
+
+react-navigation
+
+Tailwind për stilizim në Bolt.new nëse nevojitet
+
+Qëllimi:
+Aplikacion i lehtë dhe vizualisht i këndshëm që inkurajon përdoruesit të vizitojnë dhe mbështesin biznese lokale nëpërmjet sistemit të shpërblimeve.

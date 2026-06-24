@@ -1,0 +1,28 @@
+# EAS upload ignore (in addition to .gitignore)
+node_modules/
+.expo/
+dist/
+web-build/
+.git/
+*.log
+.env
+.env.local
+google-play-service-account.json
+firebase-debug.log
+.DS_Store
+
+# Windows / system paths (safety)
+AppData/
+Application Data/
+Local Settings/
+Cookies/
+Recent/
+SendTo/
+Templates/
+NetHood/
+PrintHood/
+Start Menu/
+My Documents/
+Documents/My Music/
+Documents/My Pictures/
+Documents/My Videos/
