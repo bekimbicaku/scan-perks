@@ -7,6 +7,7 @@ import {
   Image,
   TouchableOpacity,
   RefreshControl,
+  Platform,
 } from 'react-native';
 import ScreenContainer from '@/components/ui/ScreenContainer';
 import {
@@ -152,7 +153,11 @@ export default function HomeScreen() {
 
   useEffect(() => {
     if (isReady && auth.currentUser) {
-      initLocation();
+      if (Platform.OS === 'web') {
+        loadNearbyBusinesses();
+      } else {
+        initLocation();
+      }
     }
   }, [isReady]);
 
@@ -161,11 +166,15 @@ export default function HomeScreen() {
   }, [userLocation]);
 
   const initLocation = async () => {
-    const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status === 'granted') {
-      const location = await Location.getCurrentPositionAsync({});
-      setUserLocation(location);
-    } else {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status === 'granted') {
+        const location = await Location.getCurrentPositionAsync({});
+        setUserLocation(location);
+      } else {
+        loadNearbyBusinesses();
+      }
+    } catch {
       loadNearbyBusinesses();
     }
   };

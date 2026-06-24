@@ -15,7 +15,7 @@ export default function PaymentSuccessPage() {
     } else {
       // If no opener, redirect to home after 3 seconds
       setTimeout(() => {
-        router.replace('/(tabs)');
+        router.replace('/(tabs)/');
       }, 3000);
     }
   }, []);

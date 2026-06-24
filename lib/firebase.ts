@@ -1,4 +1,4 @@
-import { app, auth } from './firebaseAuth';
+import { getAppInstance } from './firebaseAuth';
 import { isFirebaseConfigured } from './firebaseConfig';
 
 export {
@@ -26,51 +26,52 @@ import { FirebaseStorage, getStorage } from 'firebase/storage';
 let dbInstance: Firestore | undefined;
 let storageInstance: FirebaseStorage | undefined;
 
-function getDb(): Firestore {
+function ensureDb(): Firestore {
   if (!dbInstance) {
-    dbInstance = getFirestore(app);
+    if (!isFirebaseConfigured()) {
+      throw new Error('Firebase is not configured.');
+    }
+    dbInstance = getFirestore(getAppInstance());
   }
   return dbInstance;
 }
 
-function getStorageInstance(): FirebaseStorage {
+function ensureStorage(): FirebaseStorage {
   if (!storageInstance) {
-    storageInstance = getStorage(app);
+    if (!isFirebaseConfigured()) {
+      throw new Error('Firebase is not configured.');
+    }
+    storageInstance = getStorage(getAppInstance());
   }
   return storageInstance;
 }
 
-export const db: Firestore = new Proxy({} as Firestore, {
-  get(_target, prop) {
-    if (!isFirebaseConfigured()) {
-      return undefined;
-    }
-    const instance = getDb();
-    const value = (instance as Record<string | symbol, unknown>)[prop];
-    return typeof value === 'function' ? (value as (...args: unknown[]) => unknown).bind(instance) : value;
-  },
-});
+function createFirebaseProxy<T extends object>(getInstance: () => T) {
+  return new Proxy({} as T, {
+    get(_target, prop) {
+      if (!isFirebaseConfigured() || typeof window === 'undefined') {
+        return undefined;
+      }
+      const instance = getInstance();
+      const value = Reflect.get(instance, prop, instance);
+      return typeof value === 'function' ? (value as (...args: unknown[]) => unknown).bind(instance) : value;
+    },
+  });
+}
 
-export const storage: FirebaseStorage = new Proxy({} as FirebaseStorage, {
-  get(_target, prop) {
-    if (!isFirebaseConfigured()) {
-      return undefined;
-    }
-    const instance = getStorageInstance();
-    const value = (instance as Record<string | symbol, unknown>)[prop];
-    return typeof value === 'function' ? (value as (...args: unknown[]) => unknown).bind(instance) : value;
-  },
-});
+export const db = createFirebaseProxy(ensureDb);
+export const storage = createFirebaseProxy(ensureStorage);
 
 export async function deleteBusiness(businessId: string) {
-  const batch = writeBatch(getDb());
+  const firestore = ensureDb();
+  const batch = writeBatch(firestore);
 
   const subcollections = ['offers', 'qr_codes', 'statistics', 'settings', 'analytics'];
   for (const sub of subcollections) {
-    const snap = await getDocs(collection(getDb(), 'businesses', businessId, sub));
+    const snap = await getDocs(collection(firestore, 'businesses', businessId, sub));
     snap.docs.forEach((d) => batch.delete(d.ref));
   }
 
-  batch.delete(doc(getDb(), 'businesses', businessId));
+  batch.delete(doc(firestore, 'businesses', businessId));
   await batch.commit();
 }

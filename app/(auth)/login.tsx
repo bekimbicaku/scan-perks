@@ -29,7 +29,7 @@ export default function LoginScreen() {
     try {
       await signInWithEmailAndPassword(auth, email, password);
       registerForPushNotifications().catch(console.error);
-      router.replace('/(tabs)');
+      router.replace('/(tabs)/');
     } catch {
       setError('Invalid email or password');
     } finally {

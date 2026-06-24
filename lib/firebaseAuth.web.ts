@@ -47,7 +47,7 @@ function canInitAuth(): boolean {
   return typeof window !== 'undefined';
 }
 
-function getAppInstance(): FirebaseApp {
+export function getAppInstance(): FirebaseApp {
   if (!appInstance) {
     appInstance = getFirebaseApp();
   }

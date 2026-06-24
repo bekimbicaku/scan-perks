@@ -11,6 +11,7 @@ import Constants from 'expo-constants';
 import AppUpdateManager from '@/components/AppUpdateManager';
 import AppSplash from '@/components/AppSplash';
 import WebConfigError from '@/components/WebConfigError';
+import WebErrorBoundary from '@/components/WebErrorBoundary';
 import { getFirebaseConfigError, isFirebaseConfigured } from '@/lib/firebaseConfig';
 
 export default function RootLayout() {
@@ -43,6 +44,8 @@ export default function RootLayout() {
     return () => unsubscribe?.();
   }, []);
 
+  const showStartupSplash = !isReady && Platform.OS !== 'web';
+
   if (configError) {
     return (
       <View style={{ flex: 1 }}>
@@ -54,20 +57,22 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.offWhite }}>
       <SafeAreaProvider>
-        {!isReady ? (
-          <AppSplash />
-        ) : (
-          <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.offWhite } }}>
-            <Stack.Screen name="index" />
-            <Stack.Screen name="(auth)" />
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="business/[id]" options={{ presentation: 'card' }} />
-            <Stack.Screen name="redeem" options={{ presentation: 'fullScreenModal' }} />
-            <Stack.Screen name="+not-found" options={{ title: 'Oops!' }} />
-          </Stack>
-        )}
-        <StatusBar style={Platform.OS === 'ios' ? 'dark' : 'auto'} />
-        <AppUpdateManager />
+        <WebErrorBoundary>
+          {showStartupSplash ? (
+            <AppSplash />
+          ) : (
+            <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.offWhite } }}>
+              <Stack.Screen name="index" />
+              <Stack.Screen name="(auth)" />
+              <Stack.Screen name="(tabs)" />
+              <Stack.Screen name="business/[id]" options={{ presentation: 'card' }} />
+              <Stack.Screen name="redeem" options={{ presentation: 'fullScreenModal' }} />
+              <Stack.Screen name="+not-found" options={{ title: 'Oops!' }} />
+            </Stack>
+          )}
+          <StatusBar style={Platform.OS === 'ios' ? 'dark' : 'auto'} />
+          <AppUpdateManager />
+        </WebErrorBoundary>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

@@ -59,4 +59,8 @@ function createAuth(app: FirebaseApp): Auth {
 const app = getFirebaseApp();
 const auth = createAuth(app);
 
+export function getAppInstance(): FirebaseApp {
+  return app;
+}
+
 export { app, auth };

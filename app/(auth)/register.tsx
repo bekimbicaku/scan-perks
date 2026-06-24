@@ -68,7 +68,7 @@ export default function RegisterScreen() {
       }
 
       registerForPushNotifications().catch(console.error);
-      router.replace('/(tabs)');
+      router.replace('/(tabs)/');
     } catch (err: any) {
       setError(err.message || 'Failed to create account');
     } finally {
