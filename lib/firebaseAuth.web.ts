@@ -13,6 +13,7 @@ import {
   signInWithEmailAndPassword,
   signOut,
 } from 'firebase/auth';
+import { firebaseConfig, isFirebaseConfigured } from './firebaseConfig';
 
 export {
   createUserWithEmailAndPassword,
@@ -25,17 +26,11 @@ export {
   signOut,
 };
 
-const firebaseConfig = {
-  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
-  measurementId: process.env.EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID,
-};
-
 function getFirebaseApp(): FirebaseApp {
+  if (!isFirebaseConfigured()) {
+    throw new Error('Firebase is not configured for this build.');
+  }
+
   return getApps().length ? getApp() : initializeApp(firebaseConfig);
 }
 
@@ -45,12 +40,18 @@ function createAuth(app: FirebaseApp): Auth {
   return webAuth;
 }
 
-const app = getFirebaseApp();
-
+let appInstance: FirebaseApp | undefined;
 let authInstance: Auth | undefined;
 
 function canInitAuth(): boolean {
   return typeof window !== 'undefined';
+}
+
+function getAppInstance(): FirebaseApp {
+  if (!appInstance) {
+    appInstance = getFirebaseApp();
+  }
+  return appInstance;
 }
 
 function getAuthInstance(): Auth {
@@ -58,14 +59,25 @@ function getAuthInstance(): Auth {
     if (!canInitAuth()) {
       throw new Error('Firebase Auth is not available during server rendering');
     }
-    authInstance = createAuth(app);
+    authInstance = createAuth(getAppInstance());
   }
   return authInstance;
 }
 
+export const app: FirebaseApp = new Proxy({} as FirebaseApp, {
+  get(_target, prop) {
+    if (!isFirebaseConfigured() || !canInitAuth()) {
+      return undefined;
+    }
+    const instance = getAppInstance();
+    const value = (instance as Record<string | symbol, unknown>)[prop];
+    return typeof value === 'function' ? (value as (...args: unknown[]) => unknown).bind(instance) : value;
+  },
+});
+
 export const auth: Auth = new Proxy({} as Auth, {
   get(_target, prop) {
-    if (!canInitAuth()) {
+    if (!isFirebaseConfigured() || !canInitAuth()) {
       return undefined;
     }
     const instance = getAuthInstance();
@@ -73,5 +85,3 @@ export const auth: Auth = new Proxy({} as Auth, {
     return typeof value === 'function' ? (value as (...args: unknown[]) => unknown).bind(instance) : value;
   },
 });
-
-export { app };

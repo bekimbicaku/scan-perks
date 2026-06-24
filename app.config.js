@@ -11,7 +11,7 @@ module.exports = {
     scheme: 'scanperks',
     userInterfaceStyle: 'automatic',
     splash: {
-      image: './assets/images/favicon.png',
+      image: './assets/images/icon.png',
       resizeMode: 'contain',
       backgroundColor: '#ffffff',
     },
@@ -38,7 +38,7 @@ module.exports = {
     web: {
       bundler: 'metro',
       output: process.env.EXPO_EXPORT_STATIC === '1' ? 'static' : 'server',
-      favicon: './assets/images/favicon.png',
+      favicon: './assets/images/icon.png',
       name: 'Scan Perks',
       shortName: 'Scan Perks',
       description:

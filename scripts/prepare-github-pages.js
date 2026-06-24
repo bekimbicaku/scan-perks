@@ -3,6 +3,7 @@ const path = require('path');
 
 const distDir = path.join(__dirname, '..', 'dist');
 const publicDir = path.join(__dirname, '..', 'public');
+const iconSource = path.join(__dirname, '..', 'assets', 'images', 'icon.png');
 
 if (!fs.existsSync(distDir)) {
   console.error('dist/ folder not found. Run expo export --platform web first.');
@@ -12,6 +13,20 @@ if (!fs.existsSync(distDir)) {
 const indexPath = path.join(distDir, 'index.html');
 if (fs.existsSync(indexPath)) {
   fs.copyFileSync(indexPath, path.join(distDir, '404.html'));
+}
+
+if (fs.existsSync(iconSource)) {
+  fs.copyFileSync(iconSource, path.join(distDir, 'icon.png'));
+  fs.copyFileSync(iconSource, path.join(distDir, 'favicon.png'));
+}
+
+if (!fs.existsSync(publicDir)) {
+  fs.mkdirSync(publicDir, { recursive: true });
+}
+
+if (fs.existsSync(iconSource)) {
+  fs.copyFileSync(iconSource, path.join(publicDir, 'icon.png'));
+  fs.copyFileSync(iconSource, path.join(publicDir, 'favicon.png'));
 }
 
 if (fs.existsSync(publicDir)) {

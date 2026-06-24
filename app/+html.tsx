@@ -19,6 +19,10 @@ export default function Root({ children }: PropsWithChildren) {
           name="description"
           content="Scan QR codes, collect loyalty stamps, and unlock rewards at local businesses."
         />
+        <link rel="icon" type="image/png" sizes="32x32" href="/icon.png" />
+        <link rel="icon" type="image/png" sizes="192x192" href="/icon.png" />
+        <link rel="apple-touch-icon" href="/icon.png" />
+        <style>{`body { background-color: #F0F9FF; margin: 0; }`}</style>
         <ScrollViewStyleReset />
       </head>
       <body>{children}</body>
