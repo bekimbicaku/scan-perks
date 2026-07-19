@@ -6,6 +6,7 @@ export {
   createUserWithEmailAndPassword,
   deleteUser,
   EmailAuthProvider,
+  getAuthInstance,
   onAuthStateChanged,
   reauthenticateWithCredential,
   sendPasswordResetEmail,

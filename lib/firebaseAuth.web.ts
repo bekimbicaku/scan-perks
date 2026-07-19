@@ -54,7 +54,7 @@ export function getAppInstance(): FirebaseApp {
   return appInstance;
 }
 
-function getAuthInstance(): Auth {
+export function getAuthInstance(): Auth {
   if (!authInstance) {
     if (!canInitAuth()) {
       throw new Error('Firebase Auth is not available during server rendering');
@@ -70,7 +70,7 @@ export const app: FirebaseApp = new Proxy({} as FirebaseApp, {
       return undefined;
     }
     const instance = getAppInstance();
-    const value = (instance as Record<string | symbol, unknown>)[prop];
+    const value = (instance as unknown as Record<string | symbol, unknown>)[prop];
     return typeof value === 'function' ? (value as (...args: unknown[]) => unknown).bind(instance) : value;
   },
 });
@@ -81,7 +81,7 @@ export const auth: Auth = new Proxy({} as Auth, {
       return undefined;
     }
     const instance = getAuthInstance();
-    const value = (instance as Record<string | symbol, unknown>)[prop];
+    const value = (instance as unknown as Record<string | symbol, unknown>)[prop];
     return typeof value === 'function' ? (value as (...args: unknown[]) => unknown).bind(instance) : value;
   },
 });

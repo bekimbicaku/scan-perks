@@ -1,9 +1,9 @@
 {
   "version": "1.0.0",
-  "buildNumber": 6,
-  "iosBuildNumber": "6",
-  "releasedAt": "2026-07-19T09:00:00.000Z",
-  "releaseNotes": "Fix web login routing so unauthenticated users see the login page.",
+  "buildNumber": 7,
+  "iosBuildNumber": "7",
+  "releasedAt": "2026-07-19T09:15:00.000Z",
+  "releaseNotes": "Fix infinite web loading on auth gate.",
   "webUrl": "https://app.scan-perks.com",
   "androidUrl": "https://play.google.com/store/apps/details?id=com.scanperks.app",
   "iosUrl": "https://apps.apple.com/app/id6744923279"

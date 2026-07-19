@@ -63,4 +63,8 @@ export function getAppInstance(): FirebaseApp {
   return app;
 }
 
+export function getAuthInstance(): Auth {
+  return auth;
+}
+
 export { app, auth };
