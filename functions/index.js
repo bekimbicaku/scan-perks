@@ -174,20 +174,30 @@ async function activateSubscriptionFromSession(session) {
       stripeCustomerId: session.customer || null,
       stripeSubscriptionId: session.subscription || null,
       stripeCheckoutSessionId: session.id || null,
+      onboardingStep: 'qr-type',
     },
     { merge: true }
   );
 
-  await admin.firestore().collection('businesses').doc(userId).set(
-    {
-      plan: planType,
-      planStatus: 'active',
-      isActive: true,
-      isPremium: planType === 'premium',
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    },
-    { merge: true }
-  );
+  // Only upgrade an existing business profile. Do NOT create an empty business
+  // doc — that breaks onboarding (form wiped / incomplete dashboard).
+  const businessRef = admin.firestore().collection('businesses').doc(userId);
+  const businessSnap = await businessRef.get();
+  if (businessSnap.exists) {
+    const existing = businessSnap.data() || {};
+    if (existing.name && existing.ownerId) {
+      await businessRef.set(
+        {
+          plan: planType,
+          planStatus: 'active',
+          isActive: true,
+          isPremium: planType === 'premium',
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+    }
+  }
 
   return { userId, planType };
 }

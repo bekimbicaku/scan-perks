@@ -81,9 +81,14 @@ const DEFAULT_BUSINESS_DATA: BusinessData = {
   },
 };
 
+function isCompleteBusiness(data: Record<string, unknown> | null | undefined): boolean {
+  return Boolean(data?.name && data?.ownerId);
+}
+
 export default function BusinessScreen() {
   const params = useLocalSearchParams<{ upgraded?: string }>();
   const [mounted, setMounted] = useState(false);
+  const [bootstrapping, setBootstrapping] = useState(true);
   const [isRegistered, setIsRegistered] = useState(false);
   const [step, setStep] = useState<Step>('register');
   const [qrType, setQrType] = useState<QRType>('static');
@@ -98,6 +103,8 @@ export default function BusinessScreen() {
     qrType?: QRType;
     plan?: Plan;
     logoUrl?: string;
+    paymentId?: string;
+    planStatus?: string;
   }>(DEFAULT_BUSINESS_DATA);
   const [error, setError] = useState('');
   const [dashboardTab, setDashboardTab] = useState<'overview' | 'tools' | 'settings'>('overview');
@@ -107,104 +114,141 @@ export default function BusinessScreen() {
   }, []);
 
   useEffect(() => {
-    if (mounted) {
-      checkBusinessRegistration();
-    }
-  }, [mounted]);
-
-  // After Stripe redirects to /payment-success → /business?upgraded=1
-  useEffect(() => {
-    if (!mounted || params.upgraded !== '1') return;
-
-    const applyUpgrade = async () => {
-      const userId = auth.currentUser?.uid;
-      if (!userId) return;
-
-      try {
-        const userSnap = await getDoc(doc(getDb(), 'users', userId));
-        const userData = userSnap.exists() ? userSnap.data() : null;
-        if (!(userData?.subscribed && userData?.planStatus === 'active')) {
-          return;
-        }
-
-        const plan = (userData.plan === 'premium' ? 'premium' : 'basic') as Plan;
-        setSelectedPlan(plan);
-        setShowPayment(false);
-
-        const businessDoc = await getDoc(doc(getDb(), 'businesses', userId));
-        if (businessDoc.exists()) {
-          setIsRegistered(true);
-          setBusinessData({
-            ...DEFAULT_BUSINESS_DATA,
-            ...(businessDoc.data() as BusinessData),
-            plan,
-          });
-        } else {
-          setStep('qr-type');
-          setBusinessData((prev) => ({
-            ...prev,
-            plan,
-            paymentId: userData.stripeSubscriptionId || userData.stripeCheckoutSessionId,
-            planStatus: 'pending',
-          }));
-        }
-      } catch (err) {
-        console.error('Error applying upgrade return:', err);
-      }
-    };
-
-    void applyUpgrade();
+    if (!mounted) return;
+    void bootstrapBusinessScreen();
   }, [mounted, params.upgraded]);
 
-  const checkBusinessRegistration = async () => {
+  const bootstrapBusinessScreen = async () => {
+    setBootstrapping(true);
     try {
       const userId = auth.currentUser?.uid;
       if (!userId) {
-        if (auth.currentUser) {
-          router.replace('/login');
+        setBootstrapping(false);
+        return;
+      }
+
+      const [businessDoc, userDoc] = await Promise.all([
+        getDoc(doc(getDb(), 'businesses', userId)),
+        getDoc(doc(getDb(), 'users', userId)),
+      ]);
+
+      const userData = userDoc.exists() ? userDoc.data() : null;
+      const businessRaw = businessDoc.exists()
+        ? (businessDoc.data() as Record<string, unknown>)
+        : null;
+      const draft = (userData?.businessDraft || null) as
+        | (BusinessData & { plan?: Plan; logoUrl?: string })
+        | null;
+      const subscribed = Boolean(
+        userData?.subscribed && userData?.planStatus === 'active'
+      );
+      const plan = (
+        userData?.plan === 'premium' || draft?.plan === 'premium' ? 'premium' : 'basic'
+      ) as Plan;
+
+      // Fully registered business → dashboard
+      if (isCompleteBusiness(businessRaw)) {
+        setIsRegistered(true);
+        setBusinessData({
+          ...DEFAULT_BUSINESS_DATA,
+          ...(businessRaw as BusinessData),
+          plan: (businessRaw?.plan as Plan) || plan,
+        });
+        setSelectedPlan((businessRaw?.plan as Plan) || plan);
+        setShowPayment(false);
+        return;
+      }
+
+      // Incomplete / missing business — continue onboarding (never wipe draft)
+      setIsRegistered(false);
+      setSelectedPlan(plan);
+      setShowPayment(false);
+
+      if (draft?.name) {
+        setBusinessData({
+          ...DEFAULT_BUSINESS_DATA,
+          ...draft,
+          plan,
+          paymentId:
+            userData?.stripeSubscriptionId ||
+            userData?.stripeCheckoutSessionId ||
+            undefined,
+          planStatus: subscribed ? 'pending' : undefined,
+        });
+      }
+
+      if (subscribed || params.upgraded === '1') {
+        // Paid — skip back to form/payment; go to QR selection
+        if (draft?.name) {
+          setStep('qr-type');
+        } else {
+          // Paid but draft missing — ask for business info once, then QR
+          setStep('register');
+          setError(
+            'Payment received. Please enter your business details to finish setup.'
+          );
         }
         return;
       }
 
-      const businessDoc = await getDoc(doc(getDb(), 'businesses', userId));
-      if (businessDoc.exists()) {
-        setIsRegistered(true);
-        setBusinessData({
-          ...DEFAULT_BUSINESS_DATA,
-          ...businessDoc.data() as BusinessData,
-        });
-      } else {
-        setIsRegistered(false);
-        setStep('register');
-        setBusinessData(DEFAULT_BUSINESS_DATA);
+      if (draft?.name) {
+        setStep('payment');
+        return;
       }
-    } catch (error: any) {
-      console.error('Error checking business registration:', error);
+
+      setStep('register');
+    } catch (err) {
+      console.error('Error bootstrapping business screen:', err);
       setError('Failed to load business data. Please try again later.');
+    } finally {
+      setBootstrapping(false);
     }
+  };
+
+  const saveBusinessDraft = async (
+    data: BusinessData & { plan?: Plan; logoUrl?: string },
+    onboardingStep: string
+  ) => {
+    const userId = auth.currentUser?.uid;
+    if (!userId) return;
+
+    await setDoc(
+      doc(getDb(), 'users', userId),
+      {
+        businessDraft: {
+          name: data.name,
+          type: data.type,
+          email: data.email,
+          phone: data.phone,
+          address: data.address,
+          logoUrl: data.logoUrl || null,
+          plan: data.plan || selectedPlan,
+        },
+        onboardingStep,
+        updatedAt: new Date(),
+      },
+      { merge: true }
+    );
   };
 
   const handlePaymentSuccess = async (paymentId: string) => {
     try {
       const userId = auth.currentUser?.uid;
       if (!userId) {
-        if (auth.currentUser) {
-          router.replace('/login');
-        }
         return;
       }
 
-      // After successful payment, move to QR type selection
       setStep('qr-type');
       setShowPayment(false);
-      
-      // Store temporary payment data
-      setBusinessData(prev => ({
-        ...prev,
+
+      const next = {
+        ...businessData,
         paymentId,
         plan: selectedPlan,
-        planStatus: 'pending', // Will be updated to 'active' after QR type is selected
-      }));
+        planStatus: 'pending',
+      };
+      setBusinessData(next);
+      await saveBusinessDraft(next, 'qr-type');
     } catch (err: any) {
       setError(err.message || 'Failed to process payment');
     }
@@ -215,16 +259,43 @@ export default function BusinessScreen() {
       const userId = auth.currentUser?.uid;
       if (!userId) throw new Error('Not authenticated');
 
-      // Now create the business with all data including QR type
-      await setDoc(doc(getDb(), 'businesses', userId), {
-        ...businessData,
-        qrType,
-        planStatus: 'active',
-        isActive: true,
-        planStartDate: new Date(),
-        ownerId: userId,
-        createdAt: new Date(),
-      });
+      if (!businessData.name || !businessData.email) {
+        setError('Business details are missing. Please fill in your business information.');
+        setStep('register');
+        return;
+      }
+
+      await setDoc(
+        doc(getDb(), 'businesses', userId),
+        {
+          name: businessData.name,
+          type: businessData.type,
+          email: businessData.email,
+          phone: businessData.phone,
+          address: businessData.address,
+          logoUrl: businessData.logoUrl || null,
+          qrType,
+          plan: selectedPlan,
+          planStatus: 'active',
+          isActive: true,
+          isPremium: selectedPlan === 'premium',
+          planStartDate: new Date(),
+          ownerId: userId,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+        { merge: true }
+      );
+
+      await setDoc(
+        doc(getDb(), 'users', userId),
+        {
+          businessDraft: null,
+          onboardingStep: 'complete',
+          updatedAt: new Date(),
+        },
+        { merge: true }
+      );
 
       setIsRegistered(true);
       setStep('success');
@@ -266,6 +337,23 @@ export default function BusinessScreen() {
 
     try {
       setError('');
+      const userId = auth.currentUser?.uid;
+      if (!userId) throw new Error('Not authenticated');
+
+      // Persist draft before Stripe redirect wipes React state
+      await saveBusinessDraft({ ...businessData, plan: selectedPlan }, 'payment');
+
+      const userSnap = await getDoc(doc(getDb(), 'users', userId));
+      const alreadyPaid =
+        userSnap.exists() &&
+        userSnap.data()?.subscribed === true &&
+        userSnap.data()?.planStatus === 'active';
+
+      if (alreadyPaid) {
+        setStep('qr-type');
+        return;
+      }
+
       setStep('payment');
     } catch (err: any) {
       setError(err.message || 'Failed to register business');
@@ -541,7 +629,14 @@ export default function BusinessScreen() {
 
       <TouchableOpacity 
         style={styles.button}
-        onPress={() => setShowPayment(true)}
+        onPress={async () => {
+          try {
+            await saveBusinessDraft({ ...businessData, plan: selectedPlan }, 'awaiting_payment');
+            setShowPayment(true);
+          } catch (err: any) {
+            setError(err.message || 'Failed to save business draft before payment');
+          }
+        }}
       >
         <CreditCard size={20} color="#fff" />
         <Text style={styles.buttonText}>Proceed to Payment</Text>
@@ -619,7 +714,11 @@ export default function BusinessScreen() {
             <Text style={styles.errorText}>{error}</Text>
           </View>
         ) : null}
-        {isRegistered ? renderDashboard() : (
+        {bootstrapping ? (
+          <View style={styles.successContainer}>
+            <Text style={styles.successDescription}>Loading your business setup...</Text>
+          </View>
+        ) : isRegistered ? renderDashboard() : (
           <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
             {step === 'register' && renderRegistrationForm()}
             {step === 'payment' && renderPlanSelection()}

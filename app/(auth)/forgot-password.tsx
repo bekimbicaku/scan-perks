@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { sendPasswordResetEmail, auth } from '@/lib/firebase';
@@ -21,9 +21,20 @@ export default function ForgotPasswordScreen() {
     setError('');
 
     try {
-      await sendPasswordResetEmail(auth, email);
+      const actionCodeSettings =
+        Platform.OS === 'web' && typeof window !== 'undefined'
+          ? {
+              url: `${window.location.origin}/login`,
+              handleCodeInApp: false,
+            }
+          : {
+              url: 'https://app.scan-perks.com/login',
+              handleCodeInApp: false,
+            };
+
+      await sendPasswordResetEmail(auth, email.trim(), actionCodeSettings);
       setSuccess(true);
-    } catch (err: any) {
+    } catch {
       setError('Failed to send reset email. Please check your email address.');
     } finally {
       setLoading(false);
@@ -41,14 +52,15 @@ export default function ForgotPasswordScreen() {
               We've sent password reset instructions to:
             </Text>
             <Text style={styles.emailText}>{email}</Text>
-            <Text style={styles.instructionsText}>
-              Click the link in the email to reset your password. If you don't see the email, check your spam folder.
-            </Text>
-            
-            <TouchableOpacity 
-              style={styles.backButton}
-              onPress={() => router.push('/login')}
-            >
+            <View style={styles.spamBox}>
+              <Text style={styles.spamTitle}>Often lands in Spam / Junk</Text>
+              <Text style={styles.instructionsText}>
+                Open Spam/Junk and look for a message from Firebase / noreply@…. Mark it as Not
+                spam, then tap the reset link. Also check Promotions if you use Gmail.
+              </Text>
+            </View>
+
+            <TouchableOpacity style={styles.backButton} onPress={() => router.push('/login')}>
               <ArrowLeft size={20} color="#0891b2" />
               <Text style={styles.backButtonText}>Return to Login</Text>
             </TouchableOpacity>
@@ -61,10 +73,7 @@ export default function ForgotPasswordScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <TouchableOpacity 
-          style={styles.backLink}
-          onPress={() => router.back()}
-        >
+        <TouchableOpacity style={styles.backLink} onPress={() => router.back()}>
           <ArrowLeft size={20} color="#64748b" />
           <Text style={styles.backLinkText}>Back to Login</Text>
         </TouchableOpacity>
@@ -72,7 +81,8 @@ export default function ForgotPasswordScreen() {
         <View style={styles.header}>
           <Text style={styles.title}>Reset Password</Text>
           <Text style={styles.subtitle}>
-            Enter your email address and we'll send you instructions to reset your password.
+            Enter your email address and we'll send you instructions to reset your password. The
+            email may arrive in Spam until you mark it as safe.
           </Text>
         </View>
 
@@ -92,8 +102,8 @@ export default function ForgotPasswordScreen() {
 
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-          <TouchableOpacity 
-            style={[styles.button, loading && styles.buttonDisabled]} 
+          <TouchableOpacity
+            style={[styles.button, loading && styles.buttonDisabled]}
             onPress={handleResetPassword}
             disabled={loading}
           >
@@ -208,11 +218,26 @@ const styles = StyleSheet.create({
     color: '#0f172a',
     marginBottom: 16,
   },
+  spamBox: {
+    backgroundColor: '#fff7ed',
+    borderWidth: 1,
+    borderColor: '#fdba74',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 28,
+    width: '100%',
+  },
+  spamTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#c2410c',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
   instructionsText: {
     fontSize: 14,
     color: '#64748b',
     textAlign: 'center',
-    marginBottom: 32,
     lineHeight: 20,
   },
   backButton: {
