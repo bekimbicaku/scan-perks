@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { StyleSheet, Text, View, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import ScreenContainer from '@/components/ui/ScreenContainer';
 import { Camera, QrCode, Shield, Gift } from 'lucide-react-native';
@@ -15,6 +16,7 @@ import GlassButton from '@/components/ui/GlassButton';
 import { colors, spacing, typography } from '@/theme';
 
 export default function ScanScreen() {
+  const insets = useSafeAreaInsets();
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -178,13 +180,13 @@ export default function ScanScreen() {
         <Text style={styles.scanText}>Scan Business QR Code</Text>
 
         {error && (
-          <View style={styles.errorContainer}>
+          <View style={[styles.errorContainer, { bottom: Math.max(insets.bottom, 16) + 88 }]}>
             <Text style={styles.errorText}>{error}</Text>
           </View>
         )}
 
         {success && scanProgress && (
-          <View style={styles.successContainer}>
+          <View style={[styles.successContainer, { bottom: Math.max(insets.bottom, 16) + 88 }]}>
             <Text style={styles.successText}>{success}</Text>
             {scanProgress.newRewardEarned && (
               <View style={styles.rewardBadge}>
@@ -196,7 +198,7 @@ export default function ScanScreen() {
         )}
 
         {scanProgress && (
-          <View style={styles.progressContainer}>
+          <View style={[styles.progressContainer, { top: Math.max(insets.top, 12) + 12 }]}>
             <Text style={styles.progressBusiness}>{scanProgress.businessName}</Text>
             <View style={styles.progressBar}>
               <View

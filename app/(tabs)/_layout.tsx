@@ -6,11 +6,11 @@ import React from 'react';
 import { colors } from '@/theme';
 import { useAuthGate } from '@/hooks/useAuthGate';
 
-const TAB_CONTENT = 52;
+const TAB_CONTENT = 56;
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
-  const bottomPad = Platform.OS === 'android' ? Math.max(insets.bottom, 6) : insets.bottom;
+  const bottomPad = Platform.OS === 'android' ? Math.max(insets.bottom, 10) : Math.max(insets.bottom, 4);
   const authGate = useAuthGate();
 
   if (authGate.status === 'loading') {
@@ -34,7 +34,7 @@ export default function TabLayout() {
           backgroundColor: 'rgba(255, 255, 255, 0.95)',
           borderTopWidth: 1,
           borderTopColor: colors.border,
-          paddingTop: 6,
+          paddingTop: 8,
           paddingBottom: bottomPad,
           height: TAB_CONTENT + bottomPad,
           elevation: 8,
@@ -45,7 +45,8 @@ export default function TabLayout() {
         tabBarLabelStyle: {
           fontSize: 11,
           fontWeight: '600',
-          marginTop: -2,
+          marginTop: 0,
+          marginBottom: 2,
         },
         tabBarHideOnKeyboard: true,
         sceneStyle: { backgroundColor: colors.offWhite },

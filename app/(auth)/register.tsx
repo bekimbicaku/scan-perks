@@ -1,5 +1,13 @@
 import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { doc, setDoc } from 'firebase/firestore';
@@ -79,70 +87,93 @@ export default function RegisterScreen() {
   return (
     <GlassBackground>
       <SafeAreaView style={styles.flex}>
-        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-          <View style={styles.header}>
-            <BrandLogo size="sm" />
-            <Text style={styles.title}>Create Account</Text>
-            <Text style={styles.subtitle}>Join Scan Perks and start earning rewards worldwide!</Text>
-          </View>
+        <KeyboardAvoidingView
+          style={styles.flex}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.header}>
+              <BrandLogo size="sm" />
+              <Text style={styles.title}>Create Account</Text>
+              <Text style={styles.subtitle}>
+                Join Scan Perks and start earning rewards worldwide!
+              </Text>
+            </View>
 
-          <GlassCard style={styles.form}>
-            <GlassInput
-              icon={<User size={20} color={colors.textMuted} />}
-              placeholder="Name *"
-              value={name}
-              onChangeText={setName}
-              autoCapitalize="words"
-            />
-            <GlassInput
-              icon={<User size={20} color={colors.textMuted} />}
-              placeholder="Surname (Optional)"
-              value={surname}
-              onChangeText={setSurname}
-              autoCapitalize="words"
-              containerStyle={styles.gap}
-            />
-            <GlassInput
-              icon={<Mail size={20} color={colors.textMuted} />}
-              placeholder="Email *"
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              keyboardType="email-address"
-              containerStyle={styles.gap}
-            />
-            <GlassInput
-              icon={<Lock size={20} color={colors.textMuted} />}
-              placeholder="Password *"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              containerStyle={styles.gap}
-            />
-            <GlassInput
-              icon={<Gift size={20} color={colors.textMuted} />}
-              placeholder="Referral Code (Optional)"
-              value={referralInput}
-              onChangeText={setReferralInput}
-              autoCapitalize="characters"
-              containerStyle={styles.gap}
-            />
+            <GlassCard style={styles.form}>
+              <GlassInput
+                icon={<User size={20} color={colors.textMuted} />}
+                placeholder="Name *"
+                value={name}
+                onChangeText={setName}
+                autoCapitalize="words"
+                returnKeyType="next"
+              />
+              <GlassInput
+                icon={<User size={20} color={colors.textMuted} />}
+                placeholder="Surname (Optional)"
+                value={surname}
+                onChangeText={setSurname}
+                autoCapitalize="words"
+                containerStyle={styles.gap}
+                returnKeyType="next"
+              />
+              <GlassInput
+                icon={<Mail size={20} color={colors.textMuted} />}
+                placeholder="Email *"
+                value={email}
+                onChangeText={setEmail}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                containerStyle={styles.gap}
+                returnKeyType="next"
+                autoComplete="email"
+              />
+              <GlassInput
+                icon={<Lock size={20} color={colors.textMuted} />}
+                placeholder="Password *"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+                containerStyle={styles.gap}
+                returnKeyType="next"
+                autoComplete="new-password"
+              />
+              <GlassInput
+                icon={<Gift size={20} color={colors.textMuted} />}
+                placeholder="Referral Code (Optional)"
+                value={referralInput}
+                onChangeText={setReferralInput}
+                autoCapitalize="characters"
+                containerStyle={styles.gap}
+                returnKeyType="done"
+                onSubmitEditing={handleRegister}
+              />
 
-            {error ? <Text style={styles.errorText}>{error}</Text> : null}
+              {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-            <GlassButton
-              label="Create Account"
-              onPress={handleRegister}
-              loading={loading}
-              icon={<ArrowRight size={20} color={colors.white} />}
-              style={styles.button}
-            />
+              <GlassButton
+                label="Create Account"
+                onPress={handleRegister}
+                loading={loading}
+                icon={<ArrowRight size={20} color={colors.white} />}
+                style={styles.button}
+              />
 
-            <TouchableOpacity onPress={() => router.push('/login')}>
-              <Text style={styles.linkText}>Already have an account? Sign in</Text>
-            </TouchableOpacity>
-          </GlassCard>
-        </ScrollView>
+              <TouchableOpacity
+                onPress={() => router.push('/login')}
+                hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
+                style={styles.linkHit}
+              >
+                <Text style={styles.linkText}>Already have an account? Sign in</Text>
+              </TouchableOpacity>
+            </GlassCard>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     </GlassBackground>
   );
@@ -150,13 +181,28 @@ export default function RegisterScreen() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  scrollContent: { flexGrow: 1, padding: spacing.lg },
-  header: { marginBottom: spacing.lg, alignItems: 'center', marginTop: spacing.md, gap: spacing.sm },
+  scrollContent: {
+    flexGrow: 1,
+    padding: spacing.lg,
+    paddingBottom: spacing.xxl,
+  },
+  header: {
+    marginBottom: spacing.lg,
+    alignItems: 'center',
+    marginTop: spacing.md,
+    gap: spacing.sm,
+  },
   title: { ...typography.h1, textAlign: 'center' },
   subtitle: { ...typography.caption, textAlign: 'center', marginTop: spacing.sm },
   form: { gap: spacing.sm },
   gap: { marginTop: spacing.sm },
   errorText: { color: colors.error, fontSize: 14, textAlign: 'center', marginTop: spacing.sm },
   button: { marginTop: spacing.md },
-  linkText: { color: colors.primaryDark, fontSize: 14, textAlign: 'center', marginTop: spacing.md },
+  linkHit: { minHeight: 44, justifyContent: 'center', marginTop: spacing.sm },
+  linkText: {
+    color: colors.primaryDark,
+    fontSize: 14,
+    textAlign: 'center',
+    fontWeight: '600',
+  },
 });

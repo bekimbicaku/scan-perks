@@ -32,7 +32,7 @@ export default function ScanPulseModal({ visible, businessName, onSubmit, onSkip
             ))}
           </View>
 
-          <TouchableOpacity onPress={onSkip}>
+          <TouchableOpacity onPress={onSkip} hitSlop={{ top: 12, bottom: 12, left: 16, right: 16 }} style={styles.skipHit}>
             <Text style={styles.skip}>Skip</Text>
           </TouchableOpacity>
         </GlassCard>
@@ -67,5 +67,13 @@ const styles = StyleSheet.create({
   },
   emoji: { fontSize: 36 },
   moodLabel: { ...typography.caption, marginTop: 6, fontWeight: '600' },
+  skipHit: {
+    alignSelf: 'center',
+    minHeight: 44,
+    minWidth: 80,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: spacing.sm,
+  },
   skip: { color: colors.textMuted, fontWeight: '600' },
 });

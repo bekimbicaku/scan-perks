@@ -168,9 +168,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     backgroundColor: colors.primary,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    minHeight: 40,
     borderRadius: 20,
   },
-  redeemText: { color: colors.white, fontSize: 12, fontWeight: '600' },
+  redeemText: { color: colors.white, fontSize: 13, fontWeight: '700' },
 });

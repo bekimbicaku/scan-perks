@@ -36,21 +36,12 @@ export default function DeleteAccountModal({ visible, onClose }: DeleteAccountMo
   };
 
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      transparent={true}
-      onRequestClose={onClose}
-    >
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <SafeAreaView style={styles.container}>
         <View style={styles.content}>
           <View style={styles.header}>
             <Text style={styles.headerText}>Delete Account</Text>
-            <TouchableOpacity 
-              style={styles.closeButton} 
-              onPress={onClose}
-              disabled={loading}
-            >
+            <TouchableOpacity style={styles.closeButton} onPress={onClose} disabled={loading}>
               <X size={24} color="#64748b" />
             </TouchableOpacity>
           </View>
@@ -58,9 +49,7 @@ export default function DeleteAccountModal({ visible, onClose }: DeleteAccountMo
           <View style={styles.warning}>
             <AlertTriangle size={48} color="#ef4444" />
             <Text style={styles.warningTitle}>Warning: This cannot be undone</Text>
-            <Text style={styles.warningText}>
-              Deleting your account will permanently remove:
-            </Text>
+            <Text style={styles.warningText}>Deleting your account will permanently remove:</Text>
             <View style={styles.bulletPoints}>
               <Text style={styles.bulletPoint}>• All your scan history</Text>
               <Text style={styles.bulletPoint}>• Earned rewards and points</Text>
@@ -70,31 +59,28 @@ export default function DeleteAccountModal({ visible, onClose }: DeleteAccountMo
           </View>
 
           <View style={styles.form}>
-            <Text style={styles.label}>
-              Enter your password to confirm deletion
-            </Text>
+            <Text style={styles.label}>Enter your password to confirm deletion</Text>
             <TextInput
               style={styles.input}
               value={password}
               onChangeText={setPassword}
               placeholder="Password"
+              placeholderTextColor="#94a3b8"
               secureTextEntry
               autoCapitalize="none"
+              underlineColorAndroid="transparent"
+              keyboardAppearance="light"
             />
 
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
             <View style={styles.buttons}>
-              <TouchableOpacity 
-                style={styles.cancelButton} 
-                onPress={onClose}
-                disabled={loading}
-              >
+              <TouchableOpacity style={styles.cancelButton} onPress={onClose} disabled={loading}>
                 <Text style={styles.cancelButtonText}>Cancel</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity 
-                style={[styles.deleteButton, loading && styles.deleteButtonDisabled]} 
+              <TouchableOpacity
+                style={[styles.deleteButton, loading && styles.deleteButtonDisabled]}
                 onPress={handleDelete}
                 disabled={loading}
               >
@@ -181,6 +167,8 @@ const styles = StyleSheet.create({
     padding: 16,
     fontSize: 16,
     backgroundColor: '#f8fafc',
+    color: '#0C4A6E',
+    minHeight: 48,
   },
   errorText: {
     color: '#ef4444',
@@ -190,6 +178,7 @@ const styles = StyleSheet.create({
   buttons: {
     flexDirection: 'row',
     gap: 12,
+    marginTop: 4,
   },
   cancelButton: {
     flex: 1,
@@ -197,6 +186,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: '#f1f5f9',
     alignItems: 'center',
+    minHeight: 50,
+    justifyContent: 'center',
   },
   cancelButtonText: {
     fontSize: 16,
@@ -209,6 +200,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: '#ef4444',
     alignItems: 'center',
+    minHeight: 50,
+    justifyContent: 'center',
   },
   deleteButtonDisabled: {
     opacity: 0.7,

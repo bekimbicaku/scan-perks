@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { getDb } from '@/lib/firebase';
@@ -161,6 +161,7 @@ export default function LoyaltyProgramSettings({ businessId }: LoyaltyProgramSet
             keyboardType="number-pad"
             editable={canModifyStampSettings()}
             placeholder="Enter number of scans"
+            placeholderTextColor="#94a3b8"
           />
         </View>
 
@@ -176,6 +177,7 @@ export default function LoyaltyProgramSettings({ businessId }: LoyaltyProgramSet
               }))
             }
             placeholder="e.g., Free coffee or 20% discount"
+            placeholderTextColor="#94a3b8"
             multiline
             numberOfLines={3}
             editable={canModifyStampSettings()}
@@ -203,6 +205,7 @@ export default function LoyaltyProgramSettings({ businessId }: LoyaltyProgramSet
             }
             keyboardType="number-pad"
             placeholder="e.g., 10"
+            placeholderTextColor="#94a3b8"
           />
         </View>
 
@@ -218,6 +221,7 @@ export default function LoyaltyProgramSettings({ businessId }: LoyaltyProgramSet
               }))
             }
             placeholder="e.g., Member Monday special"
+            placeholderTextColor="#94a3b8"
           />
         </View>
 
@@ -233,6 +237,7 @@ export default function LoyaltyProgramSettings({ businessId }: LoyaltyProgramSet
               }))
             }
             placeholder="Tell members what exclusive perk they get"
+            placeholderTextColor="#94a3b8"
             multiline
             numberOfLines={3}
           />
@@ -262,7 +267,7 @@ export default function LoyaltyProgramSettings({ businessId }: LoyaltyProgramSet
             {settings.memberDiscountPercent > 0
               ? `${settings.memberDiscountPercent}% off`
               : ''}
-            {settings.memberDiscountPercent > 0 && settings.memberPerkTitle ? ' · ' : ''}
+            {settings.memberDiscountPercent > 0 && settings.memberPerkTitle ? ' Â· ' : ''}
             {settings.memberPerkTitle || 'Exclusive perk'}
           </Text>
         )}
@@ -321,9 +326,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e2e8f0',
     borderRadius: 8,
-    padding: 12,
+    padding: 14,
     fontSize: 16,
     backgroundColor: '#f8fafc',
+    color: '#0C4A6E',
+    minHeight: 48,
   },
   inputDisabled: {
     opacity: 0.6,
@@ -405,3 +412,4 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
 });
+

@@ -92,11 +92,16 @@ export default function ForgotPasswordScreen() {
             <TextInput
               style={styles.input}
               placeholder="Email"
+              placeholderTextColor="#94a3b8"
               value={email}
               onChangeText={setEmail}
               autoCapitalize="none"
               keyboardType="email-address"
               autoComplete="email"
+              underlineColorAndroid="transparent"
+              keyboardAppearance="light"
+              returnKeyType="done"
+              onSubmitEditing={handleResetPassword}
             />
           </View>
 
@@ -167,11 +172,19 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: 12,
     fontSize: 16,
-    color: '#0f172a',
+    color: '#0C4A6E',
+    paddingVertical: 4,
   },
   button: {
     backgroundColor: '#0891b2',
     padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+    minHeight: 52,
+  },
     borderRadius: 12,
     alignItems: 'center',
     flexDirection: 'row',

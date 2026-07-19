@@ -1,7 +1,27 @@
 import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Platform } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+  Platform,
+  KeyboardAvoidingView,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Building2, QrCode, CreditCard, Check, Settings, ChevronRight, Image as ImageIcon, ScanLine } from 'lucide-react-native';
+import {
+  Building2,
+  QrCode,
+  CreditCard,
+  Check,
+  Settings,
+  ChevronRight,
+  Image as ImageIcon,
+  ScanLine,
+  Mail,
+  Phone,
+  MapPin,
+} from 'lucide-react-native';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import QRInstructions from '@/components/QRInstructions';
@@ -19,11 +39,18 @@ import BusinessDashboardHeader from '@/components/BusinessDashboardHeader';
 import HappyHourBoost from '@/components/HappyHourBoost';
 import ScanPulseInsights from '@/components/ScanPulseInsights';
 import GlassBackground from '@/components/ui/GlassBackground';
-import { colors, spacing } from '@/theme';
+import GlassInput from '@/components/ui/GlassInput';
+import { colors, spacing, radius } from '@/theme';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { auth, getDb, getStorageInstance, deleteBusiness } from '@/lib/firebase';
+import { auth, getAuthInstance, getDb, getStorageInstance, deleteBusiness, onAuthStateChanged } from '@/lib/firebase';
 import { router, useLocalSearchParams } from 'expo-router';
+import {
+  clearLocalBusinessDraft,
+  loadLocalBusinessDraft,
+  saveLocalBusinessDraft,
+  type BusinessDraft,
+} from '@/lib/businessDraft';
 
 type BusinessType = 'Bar' | 'Pizzeria' | 'Restaurant' | 'Cafe' | 'Other';
 type Step = 'register' | 'payment' | 'qr-type' | 'success';
@@ -86,7 +113,7 @@ function isCompleteBusiness(data: Record<string, unknown> | null | undefined): b
 }
 
 export default function BusinessScreen() {
-  const params = useLocalSearchParams<{ upgraded?: string }>();
+  const params = useLocalSearchParams<{ upgraded?: string; step?: string }>();
   const [mounted, setMounted] = useState(false);
   const [bootstrapping, setBootstrapping] = useState(true);
   const [isRegistered, setIsRegistered] = useState(false);
@@ -113,20 +140,46 @@ export default function BusinessScreen() {
     setMounted(true);
   }, []);
 
+  // Wait for Firebase Auth after Stripe redirect — otherwise we flash the empty form.
   useEffect(() => {
     if (!mounted) return;
-    void bootstrapBusinessScreen();
-  }, [mounted, params.upgraded]);
 
-  const bootstrapBusinessScreen = async () => {
-    setBootstrapping(true);
+    let cancelled = false;
+    let unsub: (() => void) | undefined;
+
     try {
-      const userId = auth.currentUser?.uid;
-      if (!userId) {
-        setBootstrapping(false);
-        return;
-      }
+      const authInstance = getAuthInstance();
+      unsub = onAuthStateChanged(authInstance, (user) => {
+        if (cancelled) return;
+        if (!user) {
+          setBootstrapping(false);
+          return;
+        }
+        void bootstrapBusinessScreen(user.uid);
+      });
+    } catch (err) {
+      console.warn('[business] auth bootstrap failed', err);
+      setBootstrapping(false);
+    }
 
+    return () => {
+      cancelled = true;
+      unsub?.();
+    };
+  }, [mounted, params.upgraded, params.step]);
+
+  const resolveDraft = (
+    userId: string,
+    firestoreDraft: BusinessDraft | null
+  ): BusinessDraft | null => {
+    if (firestoreDraft?.name) return firestoreDraft;
+    return loadLocalBusinessDraft(userId);
+  };
+
+  const bootstrapBusinessScreen = async (userId: string) => {
+    setBootstrapping(true);
+    setError('');
+    try {
       const [businessDoc, userDoc] = await Promise.all([
         getDoc(doc(getDb(), 'businesses', userId)),
         getDoc(doc(getDb(), 'users', userId)),
@@ -136,15 +189,20 @@ export default function BusinessScreen() {
       const businessRaw = businessDoc.exists()
         ? (businessDoc.data() as Record<string, unknown>)
         : null;
-      const draft = (userData?.businessDraft || null) as
-        | (BusinessData & { plan?: Plan; logoUrl?: string })
-        | null;
+      const draft = resolveDraft(
+        userId,
+        (userData?.businessDraft as BusinessDraft | null) || null
+      );
       const subscribed = Boolean(
         userData?.subscribed && userData?.planStatus === 'active'
       );
       const plan = (
         userData?.plan === 'premium' || draft?.plan === 'premium' ? 'premium' : 'basic'
       ) as Plan;
+      const wantQrStep =
+        params.step === 'qr-type' ||
+        params.step === 'qr' ||
+        userData?.onboardingStep === 'qr-type';
 
       // Fully registered business → dashboard
       if (isCompleteBusiness(businessRaw)) {
@@ -156,10 +214,10 @@ export default function BusinessScreen() {
         });
         setSelectedPlan((businessRaw?.plan as Plan) || plan);
         setShowPayment(false);
+        clearLocalBusinessDraft(userId);
         return;
       }
 
-      // Incomplete / missing business — continue onboarding (never wipe draft)
       setIsRegistered(false);
       setSelectedPlan(plan);
       setShowPayment(false);
@@ -167,7 +225,16 @@ export default function BusinessScreen() {
       if (draft?.name) {
         setBusinessData({
           ...DEFAULT_BUSINESS_DATA,
-          ...draft,
+          name: draft.name,
+          type: (draft.type as BusinessType) || 'Restaurant',
+          email: draft.email || auth.currentUser?.email || '',
+          phone: draft.phone || '',
+          address: {
+            street: draft.address?.street || '',
+            city: draft.address?.city || '',
+            postalCode: draft.address?.postalCode || '',
+          },
+          logoUrl: draft.logoUrl || undefined,
           plan,
           paymentId:
             userData?.stripeSubscriptionId ||
@@ -175,17 +242,23 @@ export default function BusinessScreen() {
             undefined,
           planStatus: subscribed ? 'pending' : undefined,
         });
+      } else if (auth.currentUser?.email) {
+        setBusinessData((prev) => ({
+          ...prev,
+          email: prev.email || auth.currentUser?.email || '',
+          plan,
+        }));
       }
 
-      if (subscribed || params.upgraded === '1') {
-        // Paid — skip back to form/payment; go to QR selection
+      // Paid (or returning from Stripe) → go straight to QR when we have details
+      if (subscribed || params.upgraded === '1' || wantQrStep) {
         if (draft?.name) {
           setStep('qr-type');
+          setError('');
         } else {
-          // Paid but draft missing — ask for business info once, then QR
           setStep('register');
           setError(
-            'Payment received. Please enter your business details to finish setup.'
+            'Payment received. Confirm your business details once to finish setup.'
           );
         }
         return;
@@ -212,18 +285,23 @@ export default function BusinessScreen() {
     const userId = auth.currentUser?.uid;
     if (!userId) return;
 
+    const draft: BusinessDraft = {
+      name: data.name,
+      type: data.type,
+      email: data.email,
+      phone: data.phone,
+      address: data.address,
+      logoUrl: data.logoUrl || null,
+      plan: data.plan || selectedPlan,
+    };
+
+    // Survive Stripe full-page redirect even if Firestore write is slow/fails
+    saveLocalBusinessDraft(userId, draft);
+
     await setDoc(
       doc(getDb(), 'users', userId),
       {
-        businessDraft: {
-          name: data.name,
-          type: data.type,
-          email: data.email,
-          phone: data.phone,
-          address: data.address,
-          logoUrl: data.logoUrl || null,
-          plan: data.plan || selectedPlan,
-        },
+        businessDraft: draft,
         onboardingStep,
         updatedAt: new Date(),
       },
@@ -296,6 +374,8 @@ export default function BusinessScreen() {
         },
         { merge: true }
       );
+
+      clearLocalBusinessDraft(userId);
 
       setIsRegistered(true);
       setStep('success');
@@ -388,121 +468,171 @@ export default function BusinessScreen() {
   };
 
   const renderRegistrationForm = () => (
-    <View style={styles.form}>
-      <Text style={styles.formTitle}>Business Information</Text>
-      
-      <View style={styles.inputContainer}>
-        <TextInput
-          style={styles.input}
-          placeholder="Business Name *"
-          value={businessData.name}
-          onChangeText={(text) => setBusinessData(prev => ({ ...prev, name: text }))}
-        />
-      </View>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={styles.flex}
+      keyboardVerticalOffset={Platform.OS === 'android' ? 24 : 0}
+    >
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.onboardingScroll}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.onboardingHeader}>
+          <View style={styles.stepBadgeWrap}>
+            <Text style={styles.stepBadge}>Step 1 of 3</Text>
+          </View>
+          <Text style={styles.formTitle}>Business details</Text>
+          <Text style={styles.formSubtitle}>
+            Tell customers who you are. You can edit this later in settings.
+          </Text>
+        </View>
 
-      <View style={styles.typeSelector}>
-        <Text style={styles.typeLabel}>Business Type *</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {BUSINESS_TYPES.map((type) => (
-            <TouchableOpacity
-              key={type}
-              style={[
-                styles.typeButton,
-                businessData.type === type && styles.typeButtonSelected
-              ]}
-              onPress={() => setBusinessData(prev => ({ ...prev, type }))}
-            >
-              <Text style={[
-                styles.typeButtonText,
-                businessData.type === type && styles.typeButtonTextSelected
-              ]}>
-                {type}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
-
-      <TouchableOpacity style={styles.logoUpload} onPress={pickImage}>
-        {businessData.logoUrl ? (
-          <Image
-            source={{ uri: businessData.logoUrl }}
-            style={styles.logoImage}
-            contentFit="cover"
+        <View style={styles.formCard}>
+          <Text style={styles.cardLabel}>Basics</Text>
+          <Text style={styles.fieldLabel}>Business name *</Text>
+          <GlassInput
+            icon={<Building2 size={18} color={colors.textMuted} />}
+            placeholder="e.g. Blue Harbor Cafe"
+            placeholderTextColor={colors.textMuted}
+            value={businessData.name}
+            onChangeText={(text) => setBusinessData((prev) => ({ ...prev, name: text }))}
+            autoCapitalize="words"
+            returnKeyType="next"
+            style={styles.fieldInput}
           />
-        ) : (
-          <>
-            <ImageIcon size={24} color="#64748b" />
-            <Text style={styles.logoUploadText}>Upload Logo (Optional)</Text>
-          </>
-        )}
-      </TouchableOpacity>
 
-      <View style={styles.inputContainer}>
-        <TextInput
-          style={styles.input}
-          placeholder="Contact Email *"
-          value={businessData.email}
-          onChangeText={(text) => setBusinessData(prev => ({ ...prev, email: text }))}
-          keyboardType="email-address"
-          autoCapitalize="none"
-        />
-      </View>
+          <Text style={[styles.fieldLabel, styles.fieldLabelSpaced]}>Business type *</Text>
+          <View style={styles.typeGrid}>
+            {BUSINESS_TYPES.map((type) => {
+              const selected = businessData.type === type;
+              return (
+                <TouchableOpacity
+                  key={type}
+                  style={[styles.typeChip, selected && styles.typeChipSelected]}
+                  onPress={() => setBusinessData((prev) => ({ ...prev, type }))}
+                  activeOpacity={0.85}
+                >
+                  <Text style={[styles.typeChipText, selected && styles.typeChipTextSelected]}>
+                    {type}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
 
-      <View style={styles.inputContainer}>
-        <TextInput
-          style={styles.input}
-          placeholder="Phone Number *"
-          value={businessData.phone}
-          onChangeText={(text) => setBusinessData(prev => ({ ...prev, phone: text }))}
-          keyboardType="phone-pad"
-        />
-      </View>
+          <TouchableOpacity style={styles.logoUpload} onPress={pickImage} activeOpacity={0.85}>
+            {businessData.logoUrl ? (
+              <Image
+                source={{ uri: businessData.logoUrl }}
+                style={styles.logoImage}
+                contentFit="cover"
+              />
+            ) : (
+              <View style={styles.logoUploadInner}>
+                <ImageIcon size={22} color={colors.primaryDark} />
+                <Text style={styles.logoUploadText}>Add logo (optional)</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
 
-      <Text style={styles.sectionTitle}>Address Information</Text>
+        <View style={styles.formCard}>
+          <Text style={styles.cardLabel}>Contact</Text>
+          <Text style={styles.fieldLabel}>Email *</Text>
+          <GlassInput
+            icon={<Mail size={18} color={colors.textMuted} />}
+            placeholder="business@email.com"
+            placeholderTextColor={colors.textMuted}
+            value={businessData.email}
+            onChangeText={(text) => setBusinessData((prev) => ({ ...prev, email: text }))}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+            returnKeyType="next"
+            style={styles.fieldInput}
+          />
 
-      <View style={styles.inputContainer}>
-        <TextInput
-          style={styles.input}
-          placeholder="Street Address *"
-          value={businessData.address.street}
-          onChangeText={(text) => setBusinessData(prev => ({
-            ...prev,
-            address: { ...prev.address, street: text }
-          }))}
-        />
-      </View>
+          <Text style={[styles.fieldLabel, styles.fieldLabelSpaced]}>Phone *</Text>
+          <GlassInput
+            icon={<Phone size={18} color={colors.textMuted} />}
+            placeholder="+355 ..."
+            placeholderTextColor={colors.textMuted}
+            value={businessData.phone}
+            onChangeText={(text) => setBusinessData((prev) => ({ ...prev, phone: text }))}
+            keyboardType="phone-pad"
+            returnKeyType="next"
+            style={styles.fieldInput}
+          />
+        </View>
 
-      <View style={styles.inputContainer}>
-        <TextInput
-          style={styles.input}
-          placeholder="City *"
-          value={businessData.address.city}
-          onChangeText={(text) => setBusinessData(prev => ({
-            ...prev,
-            address: { ...prev.address, city: text }
-          }))}
-        />
-      </View>
+        <View style={styles.formCard}>
+          <Text style={styles.cardLabel}>Address</Text>
+          <Text style={styles.fieldLabel}>Street *</Text>
+          <GlassInput
+            icon={<MapPin size={18} color={colors.textMuted} />}
+            placeholder="Street and number"
+            placeholderTextColor={colors.textMuted}
+            value={businessData.address.street}
+            onChangeText={(text) =>
+              setBusinessData((prev) => ({
+                ...prev,
+                address: { ...prev.address, street: text },
+              }))
+            }
+            returnKeyType="next"
+            style={styles.fieldInput}
+          />
 
-      <View style={styles.inputContainer}>
-        <TextInput
-          style={styles.input}
-          placeholder="Postal Code *"
-          value={businessData.address.postalCode}
-          onChangeText={(text) => setBusinessData(prev => ({
-            ...prev,
-            address: { ...prev.address, postalCode: text }
-          }))}
-        />
-      </View>
+          <View style={styles.addressRow}>
+            <View style={styles.addressCol}>
+              <Text style={[styles.fieldLabel, styles.fieldLabelSpaced]}>City *</Text>
+              <GlassInput
+                placeholder="City"
+                placeholderTextColor={colors.textMuted}
+                value={businessData.address.city}
+                onChangeText={(text) =>
+                  setBusinessData((prev) => ({
+                    ...prev,
+                    address: { ...prev.address, city: text },
+                  }))
+                }
+                returnKeyType="next"
+                style={styles.fieldInput}
+              />
+            </View>
+            <View style={styles.addressColNarrow}>
+              <Text style={[styles.fieldLabel, styles.fieldLabelSpaced]}>Postal *</Text>
+              <GlassInput
+                placeholder="Code"
+                placeholderTextColor={colors.textMuted}
+                value={businessData.address.postalCode}
+                onChangeText={(text) =>
+                  setBusinessData((prev) => ({
+                    ...prev,
+                    address: { ...prev.address, postalCode: text },
+                  }))
+                }
+                returnKeyType="done"
+                style={styles.fieldInput}
+              />
+            </View>
+          </View>
+        </View>
 
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-      <TouchableOpacity style={styles.button} onPress={handleBusinessRegistration}>
-        <Text style={styles.buttonText}>Continue</Text>
-      </TouchableOpacity>
-    </View>
+        <TouchableOpacity
+          style={styles.button}
+          onPress={handleBusinessRegistration}
+          activeOpacity={0.9}
+        >
+          <Text style={styles.buttonText}>Continue to plans</Text>
+          <ChevronRight size={20} color="#fff" />
+        </TouchableOpacity>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 
   const renderDashboard = () => (
@@ -594,7 +724,11 @@ export default function BusinessScreen() {
 
   const renderPlanSelection = () => (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Choose Your Plan</Text>
+      <View style={styles.stepBadgeWrap}>
+        <Text style={styles.stepBadge}>Step 2 of 3</Text>
+      </View>
+      <Text style={styles.formTitle}>Choose your plan</Text>
+      <Text style={styles.formSubtitle}>Pick what fits your venue. You can change later.</Text>
       
       <View style={styles.planGrid}>
         {(Object.keys(PLANS) as Plan[]).map((plan) => (
@@ -602,6 +736,7 @@ export default function BusinessScreen() {
             key={plan}
             style={[styles.planCard, selectedPlan === plan && styles.planCardSelected]}
             onPress={() => setSelectedPlan(plan)}
+            activeOpacity={0.9}
           >
             <Text style={[styles.planName, selectedPlan === plan && styles.planNameSelected]}>
               {PLANS[plan].name}
@@ -613,7 +748,7 @@ export default function BusinessScreen() {
             <View style={styles.planFeatures}>
               {PLANS[plan].features.map((feature, index) => (
                 <View key={index} style={styles.planFeature}>
-                  <Check size={16} color={selectedPlan === plan ? '#0891b2' : '#64748b'} />
+                  <Check size={16} color={selectedPlan === plan ? colors.primaryDark : colors.textMuted} />
                   <Text style={[
                     styles.planFeatureText,
                     selectedPlan === plan && styles.planFeatureTextSelected
@@ -637,6 +772,7 @@ export default function BusinessScreen() {
             setError(err.message || 'Failed to save business draft before payment');
           }
         }}
+        activeOpacity={0.9}
       >
         <CreditCard size={20} color="#fff" />
         <Text style={styles.buttonText}>Proceed to Payment</Text>
@@ -654,40 +790,46 @@ export default function BusinessScreen() {
 
   const renderQRTypeSelection = () => (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Choose QR Code Type</Text>
+      <View style={styles.stepBadgeWrap}>
+        <Text style={styles.stepBadge}>Step 3 of 3</Text>
+      </View>
+      <Text style={styles.formTitle}>Choose QR type</Text>
+      <Text style={styles.formSubtitle}>Static is simplest for most venues. Dynamic for unique codes per visit.</Text>
       
       <View style={styles.qrOptions}>
         <TouchableOpacity 
           style={[styles.qrOption, qrType === 'static' && styles.qrOptionSelected]}
           onPress={() => setQrType('static')}
+          activeOpacity={0.9}
         >
-          <QrCode size={32} color={qrType === 'static' ? '#0891b2' : '#64748b'} />
+          <QrCode size={32} color={qrType === 'static' ? colors.primaryDark : colors.textMuted} />
           <Text style={[styles.qrOptionTitle, qrType === 'static' && styles.qrOptionTitleSelected]}>
             Static QR
           </Text>
           <Text style={styles.qrOptionDescription}>
-            Single QR code for all transactions
+            One code for all customers
           </Text>
         </TouchableOpacity>
 
         <TouchableOpacity 
           style={[styles.qrOption, qrType === 'dynamic' && styles.qrOptionSelected]}
           onPress={() => setQrType('dynamic')}
+          activeOpacity={0.9}
         >
-          <Building2 size={32} color={qrType === 'dynamic' ? '#0891b2' : '#64748b'} />
+          <Building2 size={32} color={qrType === 'dynamic' ? colors.primaryDark : colors.textMuted} />
           <Text style={[styles.qrOptionTitle, qrType === 'dynamic' && styles.qrOptionTitleSelected]}>
             Dynamic QR
           </Text>
           <Text style={styles.qrOptionDescription}>
-            Unique QR code for each transaction
+            Unique code per visit
           </Text>
         </TouchableOpacity>
       </View>
 
       <QRInstructions type={qrType} />
 
-      <TouchableOpacity style={styles.button} onPress={handleQRTypeSelection}>
-        <Text style={styles.buttonText}>Complete Registration</Text>
+      <TouchableOpacity style={styles.button} onPress={handleQRTypeSelection} activeOpacity={0.9}>
+        <Text style={styles.buttonText}>Complete setup</Text>
       </TouchableOpacity>
     </View>
   );
@@ -718,9 +860,17 @@ export default function BusinessScreen() {
           <View style={styles.successContainer}>
             <Text style={styles.successDescription}>Loading your business setup...</Text>
           </View>
-        ) : isRegistered ? renderDashboard() : (
-          <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-            {step === 'register' && renderRegistrationForm()}
+        ) : isRegistered ? (
+          renderDashboard()
+        ) : step === 'register' ? (
+          renderRegistrationForm()
+        ) : (
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={styles.onboardingScroll}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
             {step === 'payment' && renderPlanSelection()}
             {step === 'qr-type' && renderQRTypeSelection()}
             {step === 'success' && renderSuccess()}
@@ -736,40 +886,170 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'transparent',
   },
+  flex: {
+    flex: 1,
+  },
   scrollView: {
     flex: 1,
   },
+  onboardingScroll: {
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.xxl,
+    gap: spacing.md,
+  },
+  onboardingHeader: {
+    marginBottom: spacing.sm,
+  },
+  stepBadgeWrap: {
+    alignSelf: 'flex-start',
+    backgroundColor: `${colors.primaryDark}14`,
+    borderRadius: radius.full,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    marginBottom: spacing.sm,
+  },
+  stepBadge: {
+    color: colors.primaryDark,
+    fontSize: 12,
+    fontWeight: '700',
+  },
   section: {
-    padding: 20,
+    gap: spacing.md,
   },
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#0f172a',
+    color: colors.navy,
     marginBottom: 16,
     marginTop: 24,
+  },
+  formTitle: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: colors.navy,
+    marginBottom: 6,
+  },
+  formSubtitle: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: colors.textMuted,
+    marginBottom: spacing.sm,
+  },
+  formCard: {
+    backgroundColor: colors.white,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: spacing.sm,
+    ...Platform.select({
+      ios: {
+        shadowColor: colors.glass.shadow,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.12,
+        shadowRadius: 10,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  cardLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.primaryDark,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    marginBottom: 4,
+  },
+  fieldLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.navy,
+  },
+  fieldLabelSpaced: {
+    marginTop: spacing.sm,
+  },
+  fieldInput: {
+    color: colors.navy,
+  },
+  typeGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  typeChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: radius.full,
+    backgroundColor: colors.offWhite,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  typeChipSelected: {
+    backgroundColor: colors.primaryDark,
+    borderColor: colors.primaryDark,
+  },
+  typeChipText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textMuted,
+  },
+  typeChipTextSelected: {
+    color: colors.white,
+  },
+  logoUpload: {
+    marginTop: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    borderStyle: 'dashed',
+    borderRadius: radius.md,
+    minHeight: 88,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.offWhite,
+    overflow: 'hidden',
+  },
+  logoUploadInner: {
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: spacing.md,
+  },
+  logoUploadText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.primaryDark,
+  },
+  logoImage: {
+    width: '100%',
+    height: 120,
+  },
+  addressRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  addressCol: {
+    flex: 1.4,
+  },
+  addressColNarrow: {
+    flex: 1,
   },
   form: {
     padding: 20,
     gap: 16,
   },
-  formTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#0f172a',
-    marginBottom: 20,
-  },
   inputContainer: {
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
     borderRadius: 12,
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.white,
     overflow: 'hidden',
   },
   input: {
     padding: 16,
     fontSize: 16,
-    color: '#0f172a',
+    color: colors.navy,
   },
   typeSelector: {
     marginBottom: 16,
@@ -777,7 +1057,7 @@ const styles = StyleSheet.create({
   typeLabel: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#0f172a',
+    color: colors.navy,
     marginBottom: 8,
   },
   typeButton: {
@@ -788,103 +1068,107 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   typeButtonSelected: {
-    backgroundColor: '#0891b2',
+    backgroundColor: colors.primaryDark,
   },
   typeButtonText: {
     fontSize: 14,
-    color: '#64748b',
+    color: colors.textMuted,
   },
   typeButtonTextSelected: {
     color: '#fff',
   },
   errorText: {
-    color: '#ef4444',
+    color: colors.error,
     fontSize: 14,
     textAlign: 'center',
+    fontWeight: '600',
   },
   button: {
-    backgroundColor: '#0891b2',
-    padding: 16,
-    borderRadius: 12,
+    backgroundColor: colors.primaryDark,
+    paddingVertical: 16,
+    paddingHorizontal: 18,
+    borderRadius: radius.md,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
+    marginTop: spacing.sm,
+    minHeight: 54,
   },
   buttonText: {
     color: '#fff',
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   qrOptions: {
-    flexDirection: 'row',
-    gap: 16,
-    marginBottom: 24,
+    flexDirection: Platform.OS === 'web' ? 'row' : 'column',
+    gap: 12,
+    marginBottom: 8,
   },
   qrOption: {
     flex: 1,
-    padding: 20,
-    borderRadius: 16,
-    backgroundColor: '#f8fafc',
+    padding: 18,
+    borderRadius: radius.md,
+    backgroundColor: colors.white,
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#f8fafc',
+    borderColor: colors.border,
   },
   qrOptionSelected: {
-    borderColor: '#0891b2',
-    backgroundColor: '#f0fdfa',
+    borderColor: colors.primaryDark,
+    backgroundColor: '#F0F9FF',
   },
   qrOptionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#0f172a',
+    fontSize: 17,
+    fontWeight: '700',
+    color: colors.navy,
     marginTop: 12,
     marginBottom: 4,
   },
   qrOptionTitleSelected: {
-    color: '#0891b2',
+    color: colors.primaryDark,
   },
   qrOptionDescription: {
     fontSize: 14,
-    color: '#64748b',
+    color: colors.textMuted,
     textAlign: 'center',
   },
   planGrid: {
-    gap: 16,
-    marginBottom: 24,
+    gap: 12,
+    marginBottom: 8,
   },
   planCard: {
-    padding: 24,
-    borderRadius: 16,
-    backgroundColor: '#f8fafc',
+    padding: 20,
+    borderRadius: radius.md,
+    backgroundColor: colors.white,
     borderWidth: 2,
-    borderColor: '#f8fafc',
+    borderColor: colors.border,
   },
   planCardSelected: {
-    borderColor: '#0891b2',
-    backgroundColor: '#f0fdfa',
+    borderColor: colors.primaryDark,
+    backgroundColor: '#F0F9FF',
   },
   planName: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#0f172a',
+    color: colors.navy,
     marginBottom: 8,
   },
   planNameSelected: {
-    color: '#0891b2',
+    color: colors.primaryDark,
   },
   planPrice: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#0f172a',
+    color: colors.navy,
     marginBottom: 16,
   },
   planPriceSelected: {
-    color: '#0891b2',
+    color: colors.primaryDark,
   },
   planPriceMonth: {
     fontSize: 16,
-    color: '#64748b',
+    color: colors.textMuted,
   },
   planFeatures: {
     gap: 12,
@@ -896,10 +1180,11 @@ const styles = StyleSheet.create({
   },
   planFeatureText: {
     fontSize: 14,
-    color: '#64748b',
+    color: colors.textMuted,
+    flex: 1,
   },
   planFeatureTextSelected: {
-    color: '#0f172a',
+    color: colors.navy,
   },
   successContainer: {
     padding: 20,
@@ -914,12 +1199,12 @@ const styles = StyleSheet.create({
   successTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#0f172a',
+    color: colors.navy,
     marginBottom: 12,
   },
   successDescription: {
     fontSize: 16,
-    color: '#64748b',
+    color: colors.textMuted,
     textAlign: 'center',
     marginBottom: 32,
   },
@@ -1005,26 +1290,6 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     marginTop: 20,
     borderRadius: 8,
-  },
-  logoUpload: {
-    height: 120,
-    borderWidth: 2,
-    borderColor: '#e2e8f0',
-    borderStyle: 'dashed',
-    borderRadius: 12,
-    backgroundColor: '#f8fafc',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  logoUploadText: {
-    fontSize: 14,
-    color: '#64748b',
-  },
-  logoImage: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 10,
   },
   sendButton: {
     position: 'absolute',

@@ -92,9 +92,12 @@ export default function VerifyScreen() {
           value={code}
           onChangeText={setCode}
           placeholder="000000"
+          placeholderTextColor="#94a3b8"
           keyboardType="number-pad"
           maxLength={6}
           autoComplete="one-time-code"
+          underlineColorAndroid="transparent"
+          keyboardAppearance="light"
         />
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
@@ -167,6 +170,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     letterSpacing: 8,
     backgroundColor: '#f8fafc',
+    color: '#0C4A6E',
+    minHeight: 56,
   },
   errorText: {
     color: '#ef4444',

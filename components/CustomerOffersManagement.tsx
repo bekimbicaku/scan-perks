@@ -222,6 +222,8 @@ export default function CustomerOffersManagement({ businessId }: CustomerOffersM
                 value={newOffer.title}
                 onChangeText={(text) => setNewOffer(prev => ({ ...prev, title: text }))}
                 placeholder="e.g., Weekend Special"
+                placeholderTextColor="#94a3b8"
+                underlineColorAndroid="transparent"
               />
             </View>
 
@@ -232,8 +234,10 @@ export default function CustomerOffersManagement({ businessId }: CustomerOffersM
                 value={newOffer.description}
                 onChangeText={(text) => setNewOffer(prev => ({ ...prev, description: text }))}
                 placeholder="Describe your offer"
+                placeholderTextColor="#94a3b8"
                 multiline
                 numberOfLines={3}
+                underlineColorAndroid="transparent"
               />
             </View>
 
@@ -245,6 +249,8 @@ export default function CustomerOffersManagement({ businessId }: CustomerOffersM
                 onChangeText={(text) => setNewOffer(prev => ({ ...prev, validDays: text }))}
                 keyboardType="number-pad"
                 placeholder="7"
+                placeholderTextColor="#94a3b8"
+                underlineColorAndroid="transparent"
               />
             </View>
 
@@ -255,8 +261,10 @@ export default function CustomerOffersManagement({ businessId }: CustomerOffersM
                 value={newOffer.terms}
                 onChangeText={(text) => setNewOffer(prev => ({ ...prev, terms: text }))}
                 placeholder="Enter terms and conditions"
+                placeholderTextColor="#94a3b8"
                 multiline
                 numberOfLines={3}
+                underlineColorAndroid="transparent"
               />
             </View>
 
@@ -425,9 +433,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e2e8f0',
     borderRadius: 8,
-    padding: 12,
+    padding: 14,
     fontSize: 16,
     backgroundColor: '#f8fafc',
+    color: '#0C4A6E',
+    minHeight: 48,
   },
   textArea: {
     height: 100,

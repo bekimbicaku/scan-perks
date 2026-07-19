@@ -28,7 +28,7 @@ export default function PaymentSuccessPage() {
         return;
       }
 
-      router.replace('/business?upgraded=1');
+      router.replace('/business?upgraded=1&step=qr-type');
     };
 
     const run = async (uid: string) => {
