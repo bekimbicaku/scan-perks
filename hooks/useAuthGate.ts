@@ -8,58 +8,63 @@ type AuthGateState =
   | { status: 'signedOut' }
   | { status: 'signedIn'; user: User };
 
-const AUTH_TIMEOUT_MS = 4000;
+const AUTH_TIMEOUT_MS = 2500;
 
 /**
- * Waits for the first Firebase auth callback so we don't flash the wrong screen
- * while IndexedDB persistence is restoring a session on web.
+ * Resolves Firebase auth for routing. Never stays on loading longer than AUTH_TIMEOUT_MS.
  */
 export function useAuthGate(): AuthGateState {
   const [state, setState] = useState<AuthGateState>({ status: 'loading' });
 
   useEffect(() => {
+    let alive = true;
     let settled = false;
     let unsubscribe: (() => void) | undefined;
 
     const finish = (next: AuthGateState) => {
-      if (settled) return;
+      if (!alive || settled) return;
       settled = true;
+      clearTimeout(timeout);
       setState(next);
+      unsubscribe?.();
+      unsubscribe = undefined;
     };
-
-    try {
-      ensureFirebaseServices();
-
-      if (!isFirebaseConfigured()) {
-        finish({ status: 'signedOut' });
-        return;
-      }
-
-      // Use the real Auth instance — Firebase does not reliably subscribe through a Proxy.
-      const authInstance = getAuthInstance();
-
-      unsubscribe = onAuthStateChanged(
-        authInstance,
-        (user) => {
-          finish(user ? { status: 'signedIn', user } : { status: 'signedOut' });
-        },
-        (error) => {
-          console.warn('[auth] onAuthStateChanged error', error);
-          finish({ status: 'signedOut' });
-        }
-      );
-    } catch (error) {
-      console.warn('[auth] failed to start auth gate', error);
-      finish({ status: 'signedOut' });
-    }
 
     const timeout = setTimeout(() => {
       console.warn('[auth] auth gate timed out — showing login');
       finish({ status: 'signedOut' });
     }, AUTH_TIMEOUT_MS);
 
+    try {
+      ensureFirebaseServices();
+
+      if (!isFirebaseConfigured()) {
+        finish({ status: 'signedOut' });
+      } else {
+        const authInstance = getAuthInstance();
+
+        if (authInstance.currentUser) {
+          finish({ status: 'signedIn', user: authInstance.currentUser });
+        } else {
+          unsubscribe = onAuthStateChanged(
+            authInstance,
+            (user) => {
+              finish(user ? { status: 'signedIn', user } : { status: 'signedOut' });
+            },
+            (error) => {
+              console.warn('[auth] onAuthStateChanged error', error);
+              finish({ status: 'signedOut' });
+            }
+          );
+        }
+      }
+    } catch (error) {
+      console.warn('[auth] failed to start auth gate', error);
+      finish({ status: 'signedOut' });
+    }
+
     return () => {
-      settled = true;
+      alive = false;
       clearTimeout(timeout);
       unsubscribe?.();
     };

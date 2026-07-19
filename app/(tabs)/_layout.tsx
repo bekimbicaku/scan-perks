@@ -14,6 +14,7 @@ export default function TabLayout() {
   const authGate = useAuthGate();
 
   if (authGate.status === 'loading') {
+    // Keep tabs from flashing; login is shown after short timeout if needed
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.offWhite }}>
         <ActivityIndicator size="large" color={colors.primaryDark} />

@@ -46,7 +46,7 @@ export default function LoginScreen() {
     }
   };
 
-  if (authGate.status === 'loading' || authGate.status === 'signedIn') {
+  if (authGate.status === 'signedIn') {
     return <AppSplash />;
   }
 
