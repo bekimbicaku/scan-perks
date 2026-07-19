@@ -5,7 +5,7 @@ module.exports = {
     name: 'Scan Perks',
     slug: 'scan-perks',
     owner: 'bekimb',
-    version: '1.0.0',
+    version: '1.0.1',
     orientation: 'portrait',
     icon: './assets/images/icon.png',
     scheme: 'scanperks',
@@ -19,6 +19,7 @@ module.exports = {
     ios: {
       supportsTablet: false,
       bundleIdentifier: 'com.scanperks.app',
+      buildNumber: '20',
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
         NSCameraUsageDescription:
@@ -28,6 +29,7 @@ module.exports = {
       },
     },
     android: {
+      versionCode: 20,
       adaptiveIcon: {
         foregroundImage: './assets/images/icon.png',
         backgroundColor: '#ffffff',
