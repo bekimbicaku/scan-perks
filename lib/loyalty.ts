@@ -6,6 +6,9 @@ export const DEFAULT_SCANS_REQUIRED = 10;
 export interface LoyaltySettings {
   scansRequired: number;
   reward: string;
+  memberPerkTitle: string;
+  memberPerkDescription: string;
+  memberDiscountPercent: number;
 }
 
 export async function getLoyaltySettings(businessId: string): Promise<LoyaltySettings> {
@@ -15,9 +18,18 @@ export async function getLoyaltySettings(businessId: string): Promise<LoyaltySet
     return {
       scansRequired: data.scansRequired || DEFAULT_SCANS_REQUIRED,
       reward: data.reward || 'A special reward',
+      memberPerkTitle: data.memberPerkTitle || '',
+      memberPerkDescription: data.memberPerkDescription || '',
+      memberDiscountPercent: Number(data.memberDiscountPercent) || 0,
     };
   }
-  return { scansRequired: DEFAULT_SCANS_REQUIRED, reward: 'A special reward' };
+  return {
+    scansRequired: DEFAULT_SCANS_REQUIRED,
+    reward: 'A special reward',
+    memberPerkTitle: '',
+    memberPerkDescription: '',
+    memberDiscountPercent: 0,
+  };
 }
 
 export function calculateScanProgress(totalScans: number, scansRequired: number) {

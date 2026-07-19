@@ -33,6 +33,7 @@ module.exports = {
         backgroundColor: '#ffffff',
       },
       package: 'com.scanperks.app',
+      googleServicesFile: './google-services.json',
       permissions: ['CAMERA', 'ACCESS_FINE_LOCATION'],
     },
     web: {
@@ -58,6 +59,8 @@ module.exports = {
           origin: process.env.EXPO_PUBLIC_API_URL || APP_URL,
         },
       ],
+      'expo-font',
+      'expo-web-browser',
       'expo-asset',
       [
         'expo-camera',

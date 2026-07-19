@@ -1,8 +1,8 @@
 {
   "version": "1.0.0",
-  "buildNumber": 4,
-  "iosBuildNumber": "4",
-  "releasedAt": "2026-06-24T19:19:37.529Z",
+  "buildNumber": 6,
+  "iosBuildNumber": "6",
+  "releasedAt": "2026-07-19T08:17:43.942Z",
   "releaseNotes": "Performance improvements and bug fixes.",
   "webUrl": "https://app.scan-perks.com",
   "androidUrl": "https://play.google.com/store/apps/details?id=com.scanperks.app",

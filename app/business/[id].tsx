@@ -17,6 +17,8 @@ import {
   Gift,
   Navigation,
   QrCode,
+  ExternalLink,
+  Percent,
 } from 'lucide-react-native';
 import {
   doc,
@@ -29,18 +31,30 @@ import {
 import { auth, getDb } from '@/lib/firebase';
 import GlassBackground, { GlassCard } from '@/components/ui/GlassBackground';
 import GlassButton from '@/components/ui/GlassButton';
+import DigitalLoyaltyCard from '@/components/DigitalLoyaltyCard';
 import { FavoriteButton } from '@/components/FavoriteBusinesses';
 import { getLoyaltySettings } from '@/lib/loyalty';
 import { getMapsUrl, formatDistance, haversineDistanceKm } from '@/lib/geo';
+import {
+  formatMemberPerkLabel,
+  hasMemberPerk,
+} from '@/lib/memberPerks';
 import { colors, spacing, typography, radius } from '@/theme';
 import * as Location from 'expo-location';
 
 export default function BusinessDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [business, setBusiness] = useState<any>(null);
-  const [loyalty, setLoyalty] = useState({ scansRequired: 10, reward: '' });
+  const [loyalty, setLoyalty] = useState({
+    scansRequired: 10,
+    reward: '',
+    memberPerkTitle: '',
+    memberPerkDescription: '',
+    memberDiscountPercent: 0,
+  });
   const [offers, setOffers] = useState<any[]>([]);
   const [userScans, setUserScans] = useState(0);
+  const [hasScanned, setHasScanned] = useState(false);
   const [distance, setDistance] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -57,11 +71,23 @@ export default function BusinessDetailScreen() {
         return;
       }
 
-      const data = { id: businessDoc.id, ...businessDoc.data() };
+      const data = { id: businessDoc.id, ...businessDoc.data() } as any;
       setBusiness(data);
 
       const loyaltySettings = await getLoyaltySettings(id);
       setLoyalty(loyaltySettings);
+
+      let scanned = false;
+      let scans = 0;
+      if (auth.currentUser) {
+        const scanDoc = await getDoc(doc(getDb(), 'users', auth.currentUser.uid, 'scans', id));
+        if (scanDoc.exists()) {
+          scanned = true;
+          scans = scanDoc.data().totalScans || 0;
+        }
+      }
+      setHasScanned(scanned);
+      setUserScans(scans);
 
       const offersSnap = await getDocs(
         query(
@@ -69,33 +95,32 @@ export default function BusinessDetailScreen() {
           where('validUntil', '>', new Date())
         )
       );
+      const allOffers = offersSnap.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
+        membersOnly: d.data().membersOnly !== false,
+        validUntil: d.data().validUntil?.toDate?.(),
+      }));
       setOffers(
-        offersSnap.docs.map((d) => ({
-          id: d.id,
-          ...d.data(),
-          validUntil: d.data().validUntil?.toDate?.(),
-        }))
+        allOffers.filter((offer) => !offer.membersOnly || scanned)
       );
 
-      if (auth.currentUser) {
-        const scanDoc = await getDoc(doc(getDb(), 'users', auth.currentUser.uid, 'scans', id));
-        if (scanDoc.exists()) {
-          setUserScans(scanDoc.data().totalScans || 0);
-        }
-      }
-
       if (data.location?.latitude && data.location?.longitude) {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status === 'granted') {
-          const loc = await Location.getCurrentPositionAsync({});
-          setDistance(
-            haversineDistanceKm(
-              loc.coords.latitude,
-              loc.coords.longitude,
-              data.location.latitude,
-              data.location.longitude
-            )
-          );
+        try {
+          const { status } = await Location.requestForegroundPermissionsAsync();
+          if (status === 'granted') {
+            const loc = await Location.getCurrentPositionAsync({});
+            setDistance(
+              haversineDistanceKm(
+                loc.coords.latitude,
+                loc.coords.longitude,
+                data.location.latitude,
+                data.location.longitude
+              )
+            );
+          }
+        } catch {
+          // Location optional on web / denied permissions
         }
       }
     } catch (err) {
@@ -113,6 +138,15 @@ export default function BusinessDetailScreen() {
     }
   };
 
+  const openExternal = async (url?: string) => {
+    if (!url) return;
+    try {
+      await Linking.openURL(url);
+    } catch (error) {
+      console.warn('Failed to open URL', error);
+    }
+  };
+
   if (loading || !business) {
     return (
       <GlassBackground>
@@ -124,9 +158,17 @@ export default function BusinessDetailScreen() {
   }
 
   const progress = userScans % loyalty.scansRequired;
-  const progressPct = userScans > 0 && userScans % loyalty.scansRequired === 0
-    ? 100
-    : (progress / loyalty.scansRequired) * 100;
+  const progressPct =
+    userScans > 0 && userScans % loyalty.scansRequired === 0
+      ? 100
+      : (progress / loyalty.scansRequired) * 100;
+  const memberPerk = {
+    memberPerkTitle: loyalty.memberPerkTitle,
+    memberPerkDescription: loyalty.memberPerkDescription,
+    memberDiscountPercent: loyalty.memberDiscountPercent,
+  };
+  const showReviews =
+    hasScanned && (business.googleReviewUrl || business.tripAdvisorUrl);
 
   return (
     <GlassBackground>
@@ -138,7 +180,9 @@ export default function BusinessDetailScreen() {
 
           <Image
             source={{
-              uri: business.imageUrl || business.logoUrl ||
+              uri:
+                business.imageUrl ||
+                business.logoUrl ||
                 'https://images.unsplash.com/photo-1560179707-f14e90ef3623?w=800&q=80',
             }}
             style={styles.hero}
@@ -176,16 +220,28 @@ export default function BusinessDetailScreen() {
               )}
             </GlassCard>
 
-            {auth.currentUser && (
+            {auth.currentUser && hasScanned && (
+              <View style={styles.mt}>
+                <DigitalLoyaltyCard
+                  businessId={business.id}
+                  businessName={business.name}
+                  businessType={business.type}
+                  totalScans={userScans}
+                  scansRequired={loyalty.scansRequired}
+                  reward={loyalty.reward}
+                  memberPerk={memberPerk}
+                />
+              </View>
+            )}
+
+            {auth.currentUser && !hasScanned && (
               <GlassCard style={styles.mt}>
                 <Text style={styles.sectionTitle}>Your Progress</Text>
                 <View style={styles.progressBar}>
                   <View style={[styles.progressFill, { width: `${progressPct}%` }]} />
                 </View>
                 <Text style={styles.progressText}>
-                  {userScans > 0 && userScans % loyalty.scansRequired === 0
-                    ? 'Reward ready!'
-                    : `${userScans % loyalty.scansRequired || (userScans > 0 ? loyalty.scansRequired : 0)}/${loyalty.scansRequired} scans`}
+                  Scan the QR code to start your loyalty card
                 </Text>
                 <View style={styles.rewardRow}>
                   <Gift size={18} color={colors.primary} />
@@ -194,11 +250,56 @@ export default function BusinessDetailScreen() {
               </GlassCard>
             )}
 
+            {hasScanned && hasMemberPerk(memberPerk) && (
+              <GlassCard style={styles.mt}>
+                <View style={styles.row}>
+                  <Percent size={18} color={colors.success} />
+                  <Text style={styles.sectionTitle}>Member Perk</Text>
+                </View>
+                <Text style={styles.memberTitle}>{formatMemberPerkLabel(memberPerk)}</Text>
+                {memberPerk.memberPerkDescription ? (
+                  <Text style={styles.memberDesc}>{memberPerk.memberPerkDescription}</Text>
+                ) : null}
+              </GlassCard>
+            )}
+
+            {showReviews && (
+              <GlassCard style={styles.mt}>
+                <Text style={styles.sectionTitle}>Leave a Review</Text>
+                <Text style={styles.reviewHint}>
+                  Thanks for visiting — help others find {business.name}.
+                </Text>
+                <View style={styles.actions}>
+                  {business.googleReviewUrl ? (
+                    <GlassButton
+                      label="Google review"
+                      variant="secondary"
+                      onPress={() => openExternal(business.googleReviewUrl)}
+                      icon={<ExternalLink size={18} color={colors.primaryDark} />}
+                    />
+                  ) : null}
+                  {business.tripAdvisorUrl ? (
+                    <GlassButton
+                      label="TripAdvisor review"
+                      variant="secondary"
+                      onPress={() => openExternal(business.tripAdvisorUrl)}
+                      icon={<Star size={18} color={colors.primaryDark} />}
+                    />
+                  ) : null}
+                </View>
+              </GlassCard>
+            )}
+
             {offers.length > 0 && (
               <View style={styles.mt}>
-                <Text style={styles.sectionTitle}>Active Offers</Text>
+                <Text style={styles.sectionTitle}>
+                  {hasScanned ? 'Member Offers' : 'Active Offers'}
+                </Text>
                 {offers.map((offer) => (
                   <GlassCard key={offer.id} style={styles.offerCard}>
+                    {offer.membersOnly ? (
+                      <Text style={styles.membersOnly}>Members only</Text>
+                    ) : null}
                     <Text style={styles.offerTitle}>{offer.title}</Text>
                     <Text style={styles.offerDesc}>{offer.description}</Text>
                   </GlassCard>
@@ -267,7 +368,16 @@ const styles = StyleSheet.create({
   progressText: { ...typography.caption, fontWeight: '600' },
   rewardRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.sm },
   rewardLabel: { ...typography.body, fontSize: 14 },
+  memberTitle: { ...typography.body, fontWeight: '700', color: colors.success },
+  memberDesc: { ...typography.caption, marginTop: 4 },
+  reviewHint: { ...typography.caption, marginBottom: spacing.sm },
   offerCard: { marginBottom: spacing.sm },
+  membersOnly: {
+    ...typography.label,
+    fontSize: 11,
+    color: colors.success,
+    marginBottom: 4,
+  },
   offerTitle: { ...typography.body, fontWeight: '600' },
   offerDesc: { ...typography.caption, marginTop: 4 },
   actions: { gap: spacing.sm, marginTop: spacing.lg, marginBottom: spacing.xxl },

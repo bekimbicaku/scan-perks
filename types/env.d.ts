@@ -21,8 +21,11 @@ declare global {
       EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID: string;
       EXPO_PUBLIC_STRIPE_SECRET_KEY: string;
       EXPO_PUBLIC_STRIPE_WEBHOOK_SECRET: string;
+      EXPO_PUBLIC_STRIPE_LINK_BASIC: string;
+      EXPO_PUBLIC_STRIPE_LINK_PREMIUM: string;
       EXPO_PUBLIC_PROJECT_ID: string;
       EXPO_PUBLIC_APP_URL: string;
+      EXPO_PUBLIC_ANDROID_STORE_URL: string;
     }
   }
 }

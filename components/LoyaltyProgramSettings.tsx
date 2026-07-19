@@ -2,11 +2,14 @@ import { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { getDb } from '@/lib/firebase';
-import { Gift, Save, TriangleAlert as AlertTriangle } from 'lucide-react-native';
+import { Gift, Save, TriangleAlert as AlertTriangle, Percent } from 'lucide-react-native';
 
 interface LoyaltySettings {
   scansRequired: number;
   reward: string;
+  memberPerkTitle: string;
+  memberPerkDescription: string;
+  memberDiscountPercent: number;
   lastModified: Date;
 }
 
@@ -18,6 +21,9 @@ export default function LoyaltyProgramSettings({ businessId }: LoyaltyProgramSet
   const [settings, setSettings] = useState<LoyaltySettings>({
     scansRequired: 10,
     reward: '',
+    memberPerkTitle: '',
+    memberPerkDescription: '',
+    memberDiscountPercent: 0,
     lastModified: new Date(),
   });
   const [loading, setLoading] = useState(false);
@@ -33,14 +39,17 @@ export default function LoyaltyProgramSettings({ businessId }: LoyaltyProgramSet
       const settingsDoc = await getDoc(doc(getDb(), 'businesses', businessId, 'settings', 'loyalty'));
       if (settingsDoc.exists()) {
         const data = settingsDoc.data();
+        const lastModified = data.lastModified?.toDate?.() || new Date();
         setSettings({
-          scansRequired: data.scansRequired,
-          reward: data.reward,
-          lastModified: data.lastModified.toDate(),
+          scansRequired: data.scansRequired || 10,
+          reward: data.reward || '',
+          memberPerkTitle: data.memberPerkTitle || '',
+          memberPerkDescription: data.memberPerkDescription || '',
+          memberDiscountPercent: Number(data.memberDiscountPercent) || 0,
+          lastModified,
         });
-        
-        // Calculate next modification date (1 month from last modification)
-        const nextDate = new Date(data.lastModified.toDate());
+
+        const nextDate = new Date(lastModified);
         nextDate.setMonth(nextDate.getMonth() + 1);
         setNextModificationDate(nextDate);
       }
@@ -50,40 +59,66 @@ export default function LoyaltyProgramSettings({ businessId }: LoyaltyProgramSet
     }
   };
 
-  const canModifySettings = () => {
+  const canModifyStampSettings = () => {
     if (!nextModificationDate) return true;
     return new Date() >= nextModificationDate;
   };
 
   const handleSave = async () => {
-    if (!canModifySettings()) {
-      Alert.alert(
-        'Cannot Modify Settings',
-        'Settings can only be modified once per month. Next modification available on ' +
-        nextModificationDate?.toLocaleDateString()
-      );
+    if (!settings.reward || settings.scansRequired < 1) {
+      setError('Please fill in stamp reward fields');
       return;
     }
 
-    if (!settings.reward || settings.scansRequired < 1) {
-      setError('Please fill in all required fields');
+    if (settings.memberDiscountPercent < 0 || settings.memberDiscountPercent > 100) {
+      setError('Member discount must be between 0 and 100');
       return;
     }
+
+    const stampLocked = !canModifyStampSettings();
 
     setLoading(true);
     setError(null);
 
     try {
-      await setDoc(doc(getDb(), 'businesses', businessId, 'settings', 'loyalty'), {
-        scansRequired: settings.scansRequired,
-        reward: settings.reward,
-        lastModified: new Date(),
-      }, { merge: true });
+      const payload: Record<string, unknown> = {
+        memberPerkTitle: settings.memberPerkTitle.trim(),
+        memberPerkDescription: settings.memberPerkDescription.trim(),
+        memberDiscountPercent: settings.memberDiscountPercent || 0,
+      };
 
-      // Update next modification date
-      const nextDate = new Date();
-      nextDate.setMonth(nextDate.getMonth() + 1);
-      setNextModificationDate(nextDate);
+      if (!stampLocked) {
+        payload.scansRequired = settings.scansRequired;
+        payload.reward = settings.reward;
+        payload.lastModified = new Date();
+      } else {
+        const current = await getDoc(doc(getDb(), 'businesses', businessId, 'settings', 'loyalty'));
+        if (current.exists()) {
+          const data = current.data();
+          if (
+            data.scansRequired !== settings.scansRequired ||
+            data.reward !== settings.reward
+          ) {
+            Alert.alert(
+              'Stamp settings locked',
+              'Scans required and reward can only change once per month. Member perks were saved.'
+            );
+          }
+        }
+      }
+
+      await setDoc(
+        doc(getDb(), 'businesses', businessId, 'settings', 'loyalty'),
+        payload,
+        { merge: true }
+      );
+
+      if (!stampLocked) {
+        const nextDate = new Date();
+        nextDate.setMonth(nextDate.getMonth() + 1);
+        setNextModificationDate(nextDate);
+        setSettings((prev) => ({ ...prev, lastModified: new Date() }));
+      }
 
       Alert.alert('Success', 'Loyalty program settings have been updated');
     } catch (err) {
@@ -101,11 +136,12 @@ export default function LoyaltyProgramSettings({ businessId }: LoyaltyProgramSet
         <Text style={styles.title}>Loyalty Program Settings</Text>
       </View>
 
-      {!canModifySettings() && (
+      {!canModifyStampSettings() && (
         <View style={styles.warningBox}>
           <AlertTriangle size={20} color="#f59e0b" />
           <Text style={styles.warningText}>
-            Settings can be modified again on {nextModificationDate?.toLocaleDateString()}
+            Stamp reward settings can be modified again on {nextModificationDate?.toLocaleDateString()}.
+            Member discounts can still be updated anytime.
           </Text>
         </View>
       )}
@@ -114,13 +150,16 @@ export default function LoyaltyProgramSettings({ businessId }: LoyaltyProgramSet
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Required Scans for Reward</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, !canModifyStampSettings() && styles.inputDisabled]}
             value={settings.scansRequired.toString()}
-            onChangeText={(text) => setSettings(prev => ({
-              ...prev,
-              scansRequired: parseInt(text) || 0
-            }))}
+            onChangeText={(text) =>
+              setSettings((prev) => ({
+                ...prev,
+                scansRequired: parseInt(text) || 0,
+              }))
+            }
             keyboardType="number-pad"
+            editable={canModifyStampSettings()}
             placeholder="Enter number of scans"
           />
         </View>
@@ -128,34 +167,86 @@ export default function LoyaltyProgramSettings({ businessId }: LoyaltyProgramSet
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Reward Description</Text>
           <TextInput
-            style={[styles.input, styles.textArea]}
+            style={[styles.input, styles.textArea, !canModifyStampSettings() && styles.inputDisabled]}
             value={settings.reward}
-            onChangeText={(text) => setSettings(prev => ({
-              ...prev,
-              reward: text
-            }))}
+            onChangeText={(text) =>
+              setSettings((prev) => ({
+                ...prev,
+                reward: text,
+              }))
+            }
             placeholder="e.g., Free coffee or 20% discount"
+            multiline
+            numberOfLines={3}
+            editable={canModifyStampSettings()}
+          />
+        </View>
+
+        <View style={styles.perkHeader}>
+          <Percent size={20} color="#0891b2" />
+          <Text style={styles.perkTitle}>Member Discounts & Exclusive Perks</Text>
+        </View>
+        <Text style={styles.perkHint}>
+          Visible only to customers who have scanned your QR at least once.
+        </Text>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Member discount %</Text>
+          <TextInput
+            style={styles.input}
+            value={settings.memberDiscountPercent ? String(settings.memberDiscountPercent) : ''}
+            onChangeText={(text) =>
+              setSettings((prev) => ({
+                ...prev,
+                memberDiscountPercent: Math.min(100, Math.max(0, parseInt(text) || 0)),
+              }))
+            }
+            keyboardType="number-pad"
+            placeholder="e.g., 10"
+          />
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Perk title</Text>
+          <TextInput
+            style={styles.input}
+            value={settings.memberPerkTitle}
+            onChangeText={(text) =>
+              setSettings((prev) => ({
+                ...prev,
+                memberPerkTitle: text,
+              }))
+            }
+            placeholder="e.g., Member Monday special"
+          />
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Perk description</Text>
+          <TextInput
+            style={[styles.input, styles.textArea]}
+            value={settings.memberPerkDescription}
+            onChangeText={(text) =>
+              setSettings((prev) => ({
+                ...prev,
+                memberPerkDescription: text,
+              }))
+            }
+            placeholder="Tell members what exclusive perk they get"
             multiline
             numberOfLines={3}
           />
         </View>
 
-        {error && (
-          <Text style={styles.errorText}>{error}</Text>
-        )}
+        {error && <Text style={styles.errorText}>{error}</Text>}
 
-        <TouchableOpacity 
-          style={[
-            styles.saveButton,
-            (!canModifySettings() || loading) && styles.saveButtonDisabled
-          ]} 
+        <TouchableOpacity
+          style={[styles.saveButton, loading && styles.saveButtonDisabled]}
           onPress={handleSave}
-          disabled={!canModifySettings() || loading}
+          disabled={loading}
         >
           <Save size={20} color="#fff" />
-          <Text style={styles.saveButtonText}>
-            {loading ? 'Saving...' : 'Save Settings'}
-          </Text>
+          <Text style={styles.saveButtonText}>{loading ? 'Saving...' : 'Save Settings'}</Text>
         </TouchableOpacity>
       </View>
 
@@ -165,6 +256,16 @@ export default function LoyaltyProgramSettings({ businessId }: LoyaltyProgramSet
           Customers need to scan {settings.scansRequired} times to earn:
         </Text>
         <Text style={styles.rewardText}>{settings.reward || 'No reward set'}</Text>
+        {(settings.memberDiscountPercent > 0 || settings.memberPerkTitle) && (
+          <Text style={styles.memberText}>
+            Members:{' '}
+            {settings.memberDiscountPercent > 0
+              ? `${settings.memberDiscountPercent}% off`
+              : ''}
+            {settings.memberDiscountPercent > 0 && settings.memberPerkTitle ? ' · ' : ''}
+            {settings.memberPerkTitle || 'Exclusive perk'}
+          </Text>
+        )}
         <Text style={styles.lastModified}>
           Last modified: {settings.lastModified.toLocaleDateString()}
         </Text>
@@ -224,9 +325,28 @@ const styles = StyleSheet.create({
     fontSize: 16,
     backgroundColor: '#f8fafc',
   },
+  inputDisabled: {
+    opacity: 0.6,
+  },
   textArea: {
     height: 100,
     textAlignVertical: 'top',
+  },
+  perkHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 8,
+  },
+  perkTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  perkHint: {
+    fontSize: 13,
+    color: '#64748b',
+    marginTop: -8,
   },
   errorText: {
     color: '#ef4444',
@@ -271,6 +391,12 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     color: '#0891b2',
+    marginBottom: 12,
+  },
+  memberText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#059669',
     marginBottom: 12,
   },
   lastModified: {

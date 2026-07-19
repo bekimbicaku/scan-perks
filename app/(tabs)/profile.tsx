@@ -3,16 +3,16 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-nati
 import ScreenContainer from '@/components/ui/ScreenContainer';
 import { signOut, auth, getDb } from '@/lib/firebase';
 import { router, useRootNavigationState } from 'expo-router';
-import { LogOut, Tag, TriangleAlert as AlertTriangle, User } from 'lucide-react-native';
+import { LogOut, Tag, TriangleAlert as AlertTriangle, User, Gift, CreditCard } from 'lucide-react-native';
 import { collection, query, where, getDocs, onSnapshot, doc, getDoc } from 'firebase/firestore';
 import DeleteAccountModal from '@/components/DeleteAccountModal';
 import RewardsWallet from '@/components/RewardsWallet';
+import LoyaltyCards from '@/components/LoyaltyCards';
 import ReferralHub from '@/components/ReferralHub';
 import BrandLogo from '@/components/ui/BrandLogo';
 import StatCard from '@/components/ui/StatCard';
 import GlassBackground, { GlassCard } from '@/components/ui/GlassBackground';
 import EmptyState from '@/components/ui/EmptyState';
-import { Gift } from 'lucide-react-native';
 import { colors, spacing, typography } from '@/theme';
 
 interface Offer {
@@ -23,6 +23,7 @@ interface Offer {
   title: string;
   description: string;
   validUntil: Date;
+  membersOnly?: boolean;
 }
 
 export default function ProfileScreen() {
@@ -105,6 +106,7 @@ export default function ProfileScreen() {
           title: d.data().title,
           description: d.data().description,
           validUntil: d.data().validUntil.toDate(),
+          membersOnly: d.data().membersOnly !== false,
         }));
       });
 
@@ -161,6 +163,14 @@ export default function ProfileScreen() {
           ) : null}
 
           <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Loyalty Cards</Text>
+              <CreditCard size={20} color={colors.primary} />
+            </View>
+            <LoyaltyCards />
+          </View>
+
+          <View style={styles.section}>
             <Text style={styles.sectionTitle}>Rewards Wallet</Text>
             <RewardsWallet />
           </View>
@@ -187,6 +197,9 @@ export default function ProfileScreen() {
               offers.map((offer) => (
                 <GlassCard key={`${offer.businessId}-${offer.id}`} style={styles.offerCard}>
                   <Text style={styles.businessName}>{offer.businessName}</Text>
+                  {offer.membersOnly !== false ? (
+                    <Text style={styles.membersOnly}>Members only</Text>
+                  ) : null}
                   <Text style={styles.offerTitle}>{offer.title}</Text>
                   <Text style={styles.offerDescription} numberOfLines={2}>
                     {offer.description}
@@ -246,6 +259,7 @@ const styles = StyleSheet.create({
   referralHint: { ...typography.caption, marginTop: spacing.sm },
   offerCard: { marginBottom: spacing.sm },
   businessName: { ...typography.label, marginBottom: 4 },
+  membersOnly: { ...typography.label, fontSize: 11, color: colors.success, marginBottom: 4 },
   offerTitle: { ...typography.body, fontWeight: '600' },
   offerDescription: { ...typography.caption, marginTop: 4 },
   validUntil: { ...typography.caption, fontSize: 12, marginTop: spacing.sm, fontStyle: 'italic' },

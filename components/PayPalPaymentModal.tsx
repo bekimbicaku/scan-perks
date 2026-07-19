@@ -6,6 +6,8 @@ import { auth } from '@/lib/firebase';
 import { onSnapshot, doc } from 'firebase/firestore';
 import { getDb } from '@/lib/firebase';
 
+import { getStripePaymentLink } from '@/lib/stripePaymentLinks';
+
 interface PayPalPaymentModalProps {
   visible: boolean;
   onClose: () => void;
@@ -13,11 +15,6 @@ interface PayPalPaymentModalProps {
   amount: number;
   plan: string;
 }
-
-const STRIPE_PAYMENT_LINKS = {
-  basic: 'https://buy.stripe.com/test_dR6eXddT75D13Ha6op',
-  premium: 'https://buy.stripe.com/test_5kA9CT6qF7L97Xq000',
-};
 
 export default function PayPalPaymentModal({
   visible,
@@ -74,7 +71,7 @@ export default function PayPalPaymentModal({
     setLoading(true);
     try {
       const planType = amount === 10 ? 'basic' : 'premium';
-      const paymentLink = STRIPE_PAYMENT_LINKS[planType];
+      const paymentLink = getStripePaymentLink(planType);
       
       if (Platform.OS === 'web') {
         const successUrl = encodeURIComponent(`${window.location.origin}/payment-success`);

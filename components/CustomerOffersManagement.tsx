@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, Platform, Switch } from 'react-native';
 import { doc, collection, query, where, getDocs, addDoc, Timestamp, getDoc } from 'firebase/firestore';
 import { getDb } from '@/lib/firebase';
 import { Tag, Calendar, Send, ChevronRight, Users } from 'lucide-react-native';
@@ -12,6 +12,7 @@ interface Offer {
   validUntil: Date;
   terms: string;
   sentAt: Date;
+  membersOnly?: boolean;
   engagement: {
     views: number;
     claims: number;
@@ -29,6 +30,7 @@ export default function CustomerOffersManagement({ businessId }: CustomerOffersM
     description: '',
     validDays: '7',
     terms: '',
+    membersOnly: true,
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -76,12 +78,13 @@ export default function CustomerOffersManagement({ businessId }: CustomerOffersM
       );
       
       const snapshot = await getDocs(activeOffersQuery);
-      const loadedOffers = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        validFrom: doc.data().validFrom.toDate(),
-        validUntil: doc.data().validUntil.toDate(),
-        sentAt: doc.data().sentAt.toDate(),
+      const loadedOffers = snapshot.docs.map((offerDoc) => ({
+        id: offerDoc.id,
+        ...offerDoc.data(),
+        membersOnly: offerDoc.data().membersOnly !== false,
+        validFrom: offerDoc.data().validFrom.toDate(),
+        validUntil: offerDoc.data().validUntil.toDate(),
+        sentAt: offerDoc.data().sentAt.toDate(),
       })) as Offer[];
 
       setOffers(loadedOffers);
@@ -147,7 +150,11 @@ export default function CustomerOffersManagement({ businessId }: CustomerOffersM
       validUntil.setDate(validUntil.getDate() + parseInt(newOffer.validDays));
 
       await addDoc(collection(getDb(), 'businesses', businessId, 'offers'), {
-        ...newOffer,
+        title: newOffer.title,
+        description: newOffer.description,
+        validDays: newOffer.validDays,
+        terms: newOffer.terms,
+        membersOnly: newOffer.membersOnly,
         validFrom: Timestamp.fromDate(validFrom),
         validUntil: Timestamp.fromDate(validUntil),
         sentAt: Timestamp.fromDate(new Date()),
@@ -163,6 +170,7 @@ export default function CustomerOffersManagement({ businessId }: CustomerOffersM
         description: '',
         validDays: '7',
         terms: '',
+        membersOnly: true,
       });
 
       // Reload offers to update counts and next available date
@@ -252,6 +260,20 @@ export default function CustomerOffersManagement({ businessId }: CustomerOffersM
               />
             </View>
 
+            <View style={styles.switchRow}>
+              <View style={styles.switchCopy}>
+                <Text style={styles.label}>Members only</Text>
+                <Text style={styles.switchHint}>
+                  Only customers who scanned your QR can see this offer
+                </Text>
+              </View>
+              <Switch
+                value={newOffer.membersOnly}
+                onValueChange={(value) => setNewOffer((prev) => ({ ...prev, membersOnly: value }))}
+                trackColor={{ true: '#0891b2' }}
+              />
+            </View>
+
             {error && (
               <Text style={styles.errorText}>{error}</Text>
             )}
@@ -271,6 +293,12 @@ export default function CustomerOffersManagement({ businessId }: CustomerOffersM
                     <Text style={styles.offerTitle}>{offer.title}</Text>
                     <ChevronRight size={20} color="#64748b" />
                   </View>
+
+                  {offer.membersOnly !== false ? (
+                    <Text style={styles.membersBadge}>Members only</Text>
+                  ) : (
+                    <Text style={styles.publicBadge}>Public</Text>
+                  )}
 
                   <Text style={styles.offerDescription}>{offer.description}</Text>
 
@@ -404,6 +432,44 @@ const styles = StyleSheet.create({
   textArea: {
     height: 100,
     textAlignVertical: 'top',
+  },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  switchCopy: {
+    flex: 1,
+    gap: 4,
+  },
+  switchHint: {
+    fontSize: 13,
+    color: '#64748b',
+  },
+  membersBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#ecfdf5',
+    color: '#059669',
+    fontSize: 12,
+    fontWeight: '600',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    overflow: 'hidden',
+    marginBottom: 8,
+  },
+  publicBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#e0f2fe',
+    color: '#0369a1',
+    fontSize: 12,
+    fontWeight: '600',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    overflow: 'hidden',
+    marginBottom: 8,
   },
   errorText: {
     color: '#ef4444',

@@ -3,6 +3,7 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { auth, getDb } from './firebase';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { getExpoProjectId } from './expoProjectId';
 
 function isPushSupported() {
   return Platform.OS !== 'web' && Device.isDevice && Constants.appOwnership !== 'expo';
@@ -31,7 +32,7 @@ export async function registerForPushNotifications() {
     if (finalStatus !== 'granted') return;
 
     const expoPushToken = await Notifications.getExpoPushTokenAsync({
-      projectId: process.env.EXPO_PUBLIC_PROJECT_ID,
+      projectId: getExpoProjectId(),
     });
 
     if (auth.currentUser) {
@@ -91,6 +92,8 @@ export async function configurePushNotifications() {
       shouldShowAlert: true,
       shouldPlaySound: true,
       shouldSetBadge: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
     }),
   });
 }

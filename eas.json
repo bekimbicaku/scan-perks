@@ -7,12 +7,40 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyCpSaVT-wpYhJSXyWyij-T-fW2__9soVY8",
+        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "scanperks-cc721.firebaseapp.com",
+        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "scanperks-cc721",
+        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "scanperks-cc721.firebasestorage.app",
+        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "656761980148",
+        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:656761980148:web:c7a9979615baa498cc8aa1",
+        "EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID": "G-MS9B0J8MF7",
+        "EXPO_PUBLIC_PROJECT_ID": "c5472ecf-b98c-43a6-b987-86ce074f2a47",
+        "EXPO_PUBLIC_APP_URL": "https://app.scan-perks.com",
+        "EXPO_PUBLIC_API_URL": "https://app.scan-perks.com",
+        "EXPO_PUBLIC_STRIPE_LINK_BASIC": "https://buy.stripe.com/test_dR6eXddT75D13Ha6op",
+        "EXPO_PUBLIC_STRIPE_LINK_PREMIUM": "https://buy.stripe.com/test_5kA9CT6qF7L97Xq000"
+      }
     },
     "preview": {
       "distribution": "internal",
       "android": {
         "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyCpSaVT-wpYhJSXyWyij-T-fW2__9soVY8",
+        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "scanperks-cc721.firebaseapp.com",
+        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "scanperks-cc721",
+        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "scanperks-cc721.firebasestorage.app",
+        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "656761980148",
+        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:656761980148:web:c7a9979615baa498cc8aa1",
+        "EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID": "G-MS9B0J8MF7",
+        "EXPO_PUBLIC_PROJECT_ID": "c5472ecf-b98c-43a6-b987-86ce074f2a47",
+        "EXPO_PUBLIC_APP_URL": "https://app.scan-perks.com",
+        "EXPO_PUBLIC_API_URL": "https://app.scan-perks.com",
+        "EXPO_PUBLIC_STRIPE_LINK_BASIC": "https://buy.stripe.com/test_dR6eXddT75D13Ha6op",
+        "EXPO_PUBLIC_STRIPE_LINK_PREMIUM": "https://buy.stripe.com/test_5kA9CT6qF7L97Xq000"
       }
     },
     "production": {
@@ -21,8 +49,19 @@
         "buildType": "app-bundle"
       },
       "env": {
+        "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyCpSaVT-wpYhJSXyWyij-T-fW2__9soVY8",
+        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "scanperks-cc721.firebaseapp.com",
+        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "scanperks-cc721",
+        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "scanperks-cc721.firebasestorage.app",
+        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "656761980148",
+        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:656761980148:web:c7a9979615baa498cc8aa1",
+        "EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID": "G-MS9B0J8MF7",
+        "EXPO_PUBLIC_PROJECT_ID": "c5472ecf-b98c-43a6-b987-86ce074f2a47",
         "EXPO_PUBLIC_APP_URL": "https://app.scan-perks.com",
-        "EXPO_PUBLIC_API_URL": "https://app.scan-perks.com"
+        "EXPO_PUBLIC_API_URL": "https://app.scan-perks.com",
+        "EXPO_PUBLIC_ANDROID_STORE_URL": "https://play.google.com/store/apps/details?id=com.scanperks.app",
+        "EXPO_PUBLIC_STRIPE_LINK_BASIC": "https://buy.stripe.com/test_dR6eXddT75D13Ha6op",
+        "EXPO_PUBLIC_STRIPE_LINK_PREMIUM": "https://buy.stripe.com/test_5kA9CT6qF7L97Xq000"
       }
     }
   },

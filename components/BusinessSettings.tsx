@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Switch } from 'react-native';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { Save, Building2, Clock, MapPin, Phone, Mail } from 'lucide-react-native';
+import { Save, Building2, Clock, MapPin, Phone, Mail, Star, ExternalLink } from 'lucide-react-native';
 import { getDb } from '@/lib/firebase';
 import { GlassCard } from '@/components/ui/GlassBackground';
 import GlassInput from '@/components/ui/GlassInput';
 import GlassButton from '@/components/ui/GlassButton';
 import SectionHeader from '@/components/ui/SectionHeader';
+import { isValidHttpUrl, normalizeUrl } from '@/lib/memberPerks';
 import { colors, spacing, typography } from '@/theme';
 
 interface BusinessHours {
@@ -25,6 +26,8 @@ interface SettingsForm {
   contact: { phone: string; email: string };
   hours: DaysHours;
   closedSunday: boolean;
+  googleReviewUrl: string;
+  tripAdvisorUrl: string;
 }
 
 const DEFAULT_HOURS: DaysHours = {
@@ -49,6 +52,8 @@ export default function BusinessSettings({ businessId }: BusinessSettingsProps) 
     contact: { phone: '', email: '' },
     hours: DEFAULT_HOURS,
     closedSunday: false,
+    googleReviewUrl: '',
+    tripAdvisorUrl: '',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -77,12 +82,18 @@ export default function BusinessSettings({ businessId }: BusinessSettingsProps) 
       },
       hours: data.hours || DEFAULT_HOURS,
       closedSunday: data.closedSunday || false,
+      googleReviewUrl: data.googleReviewUrl || '',
+      tripAdvisorUrl: data.tripAdvisorUrl || '',
     });
   };
 
   const save = async () => {
     if (!form.name || !form.contact.email || !form.contact.phone) {
       setError('Name, email and phone are required');
+      return;
+    }
+    if (!isValidHttpUrl(form.googleReviewUrl) || !isValidHttpUrl(form.tripAdvisorUrl)) {
+      setError('Review links must be valid http(s) URLs');
       return;
     }
     setLoading(true);
@@ -102,6 +113,8 @@ export default function BusinessSettings({ businessId }: BusinessSettingsProps) 
         contact: form.contact,
         hours: form.hours,
         closedSunday: form.closedSunday,
+        googleReviewUrl: normalizeUrl(form.googleReviewUrl),
+        tripAdvisorUrl: normalizeUrl(form.tripAdvisorUrl),
         updatedAt: new Date(),
       });
       setSuccess(true);
@@ -192,6 +205,33 @@ export default function BusinessSettings({ businessId }: BusinessSettingsProps) 
 
       <GlassCard style={styles.block}>
         <View style={styles.hoursHeader}>
+          <Star size={18} color={colors.primaryDark} />
+          <Text style={styles.blockTitle}>Review Links</Text>
+        </View>
+        <Text style={styles.hint}>
+          Shown only to customers who have scanned your QR code, so they can leave a review.
+        </Text>
+        <GlassInput
+          placeholder="Google review URL"
+          value={form.googleReviewUrl}
+          onChangeText={(t) => setForm((p) => ({ ...p, googleReviewUrl: t }))}
+          icon={<ExternalLink size={18} color={colors.textMuted} />}
+          autoCapitalize="none"
+          keyboardType="url"
+        />
+        <GlassInput
+          placeholder="TripAdvisor URL (optional)"
+          value={form.tripAdvisorUrl}
+          onChangeText={(t) => setForm((p) => ({ ...p, tripAdvisorUrl: t }))}
+          icon={<ExternalLink size={18} color={colors.textMuted} />}
+          containerStyle={styles.gap}
+          autoCapitalize="none"
+          keyboardType="url"
+        />
+      </GlassCard>
+
+      <GlassCard style={styles.block}>
+        <View style={styles.hoursHeader}>
           <Clock size={18} color={colors.primaryDark} />
           <Text style={styles.blockTitle}>Hours</Text>
         </View>
@@ -240,6 +280,7 @@ const styles = StyleSheet.create({
   wrap: { paddingHorizontal: spacing.md, paddingBottom: spacing.lg, gap: spacing.sm },
   block: { gap: spacing.sm },
   blockTitle: { ...typography.h3, fontSize: 16 },
+  hint: { ...typography.caption, marginBottom: spacing.xs },
   gap: { marginTop: spacing.sm },
   row: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
   flex: { flex: 1 },
