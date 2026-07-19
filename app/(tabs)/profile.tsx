@@ -42,7 +42,7 @@ export default function ProfileScreen() {
     if (!navigationState?.key) return;
 
     if (!auth.currentUser) {
-      router.replace('/(auth)/login');
+      router.replace('/login');
       return;
     }
 
@@ -121,7 +121,7 @@ export default function ProfileScreen() {
 
   const handleSignOut = async () => {
     await signOut(auth);
-    router.replace('/(auth)/login');
+    router.replace('/login');
   };
 
   if (!navigationState?.key) {

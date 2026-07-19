@@ -1,34 +1,16 @@
 import { Redirect } from 'expo-router';
-import { onAuthStateChanged } from 'firebase/auth';
-import { useEffect, useState } from 'react';
 import AppSplash from '@/components/AppSplash';
-import { auth, ensureFirebaseServices } from '@/lib/firebase';
-import { isFirebaseConfigured } from '@/lib/firebaseConfig';
+import { useAuthGate } from '@/hooks/useAuthGate';
 
 export default function Index() {
-  const [target, setTarget] = useState<'loading' | 'login' | 'tabs'>('loading');
+  const authGate = useAuthGate();
 
-  useEffect(() => {
-    ensureFirebaseServices();
-
-    if (!isFirebaseConfigured()) {
-      setTarget('login');
-      return;
-    }
-
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setTarget(user ? 'tabs' : 'login');
-    });
-
-    return unsubscribe;
-  }, []);
-
-  if (target === 'loading') {
+  if (authGate.status === 'loading') {
     return <AppSplash />;
   }
 
-  if (target === 'tabs') {
-    return <Redirect href="/(tabs)/" />;
+  if (authGate.status === 'signedIn') {
+    return <Redirect href="/home" />;
   }
 
   return <Redirect href="/login" />;

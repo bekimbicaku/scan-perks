@@ -37,7 +37,7 @@ export default function VerifyScreen() {
       }
 
       await verifyEmailCode(userId, code);
-      router.replace('/(tabs)/');
+      router.replace('/home');
     } catch (err: any) {
       setError(err.message || 'Failed to verify code');
     } finally {

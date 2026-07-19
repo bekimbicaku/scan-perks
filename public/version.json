@@ -2,8 +2,8 @@
   "version": "1.0.0",
   "buildNumber": 6,
   "iosBuildNumber": "6",
-  "releasedAt": "2026-07-19T08:17:43.942Z",
-  "releaseNotes": "Performance improvements and bug fixes.",
+  "releasedAt": "2026-07-19T09:00:00.000Z",
+  "releaseNotes": "Fix web login routing so unauthenticated users see the login page.",
   "webUrl": "https://app.scan-perks.com",
   "androidUrl": "https://play.google.com/store/apps/details?id=com.scanperks.app",
   "iosUrl": "https://apps.apple.com/app/id6744923279"

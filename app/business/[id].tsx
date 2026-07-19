@@ -310,7 +310,7 @@ export default function BusinessDetailScreen() {
             <View style={styles.actions}>
               <GlassButton
                 label="Scan QR Code"
-                onPress={() => router.push('/(tabs)/scan')}
+                onPress={() => router.push('/scan')}
                 icon={<QrCode size={20} color={colors.white} />}
               />
               {business.location && (

@@ -116,7 +116,7 @@ export default function BusinessScreen() {
       const userId = auth.currentUser?.uid;
       if (!userId) {
         if (auth.currentUser) {
-          router.replace('/(auth)/login');
+          router.replace('/login');
         }
         return;
       }
@@ -144,7 +144,7 @@ export default function BusinessScreen() {
       const userId = auth.currentUser?.uid;
       if (!userId) {
         if (auth.currentUser) {
-          router.replace('/(auth)/login');
+          router.replace('/login');
         }
         return;
       }
@@ -195,7 +195,7 @@ export default function BusinessScreen() {
       const userId = auth.currentUser?.uid;
       if (!userId) {
         if (auth.currentUser) {
-          router.replace('/(auth)/login');
+          router.replace('/login');
         }
         return;
       }

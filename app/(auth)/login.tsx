@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -9,13 +9,22 @@ import GlassBackground, { GlassCard } from '@/components/ui/GlassBackground';
 import GlassInput from '@/components/ui/GlassInput';
 import GlassButton from '@/components/ui/GlassButton';
 import BrandLogo from '@/components/ui/BrandLogo';
+import AppSplash from '@/components/AppSplash';
+import { useAuthGate } from '@/hooks/useAuthGate';
 import { colors, spacing, typography } from '@/theme';
 
 export default function LoginScreen() {
+  const authGate = useAuthGate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (authGate.status === 'signedIn') {
+      router.replace('/home');
+    }
+  }, [authGate.status]);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -29,13 +38,17 @@ export default function LoginScreen() {
     try {
       await signInWithEmailAndPassword(auth, email, password);
       registerForPushNotifications().catch(console.error);
-      router.replace('/(tabs)/');
+      router.replace('/home');
     } catch {
       setError('Invalid email or password');
     } finally {
       setLoading(false);
     }
   };
+
+  if (authGate.status === 'loading' || authGate.status === 'signedIn') {
+    return <AppSplash />;
+  }
 
   return (
     <GlassBackground>
@@ -67,7 +80,7 @@ export default function LoginScreen() {
 
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-            <TouchableOpacity onPress={() => router.push('/(auth)/forgot-password')}>
+            <TouchableOpacity onPress={() => router.push('/forgot-password')}>
               <Text style={styles.forgotText}>Forgot password?</Text>
             </TouchableOpacity>
 
@@ -79,7 +92,7 @@ export default function LoginScreen() {
               style={styles.button}
             />
 
-            <TouchableOpacity onPress={() => router.push('/(auth)/register')}>
+            <TouchableOpacity onPress={() => router.push('/register')}>
               <Text style={styles.linkText}>Don't have an account? Create one</Text>
             </TouchableOpacity>
           </GlassCard>

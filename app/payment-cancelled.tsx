@@ -14,7 +14,7 @@ export default function PaymentCancelledPage() {
   }, []);
 
   const handleTryAgain = () => {
-    router.replace('/(tabs)/business');
+    router.replace('/business');
   };
 
   return (

@@ -68,7 +68,7 @@ export default function RegisterScreen() {
       }
 
       registerForPushNotifications().catch(console.error);
-      router.replace('/(tabs)/');
+      router.replace('/home');
     } catch (err: any) {
       setError(err.message || 'Failed to create account');
     } finally {
@@ -138,7 +138,7 @@ export default function RegisterScreen() {
               style={styles.button}
             />
 
-            <TouchableOpacity onPress={() => router.push('/(auth)/login')}>
+            <TouchableOpacity onPress={() => router.push('/login')}>
               <Text style={styles.linkText}>Already have an account? Sign in</Text>
             </TouchableOpacity>
           </GlassCard>

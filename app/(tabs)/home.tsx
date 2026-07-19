@@ -88,7 +88,7 @@ export default function HomeScreen() {
 
     const checkAuth = async () => {
       if (!auth.currentUser) {
-        router.replace('/(auth)/login');
+        router.replace('/login');
         return;
       }
       loadUserData();
@@ -295,7 +295,7 @@ export default function HomeScreen() {
                   title="Make Your First Scan!"
                   description="Visit any participating business and scan their QR code to start earning rewards."
                   action={
-                    <GlassButton label="Scan Now" onPress={() => router.push('/(tabs)/scan')} />
+                    <GlassButton label="Scan Now" onPress={() => router.push('/scan')} />
                   }
                 />
               </GlassCard>

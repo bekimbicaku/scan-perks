@@ -1,15 +1,29 @@
-import { Tabs } from 'expo-router';
-import { Platform } from 'react-native';
+import { Tabs, Redirect } from 'expo-router';
+import { Platform, View, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Building2, QrCode, Chrome, User } from 'lucide-react-native';
 import React from 'react';
 import { colors } from '@/theme';
+import { useAuthGate } from '@/hooks/useAuthGate';
 
 const TAB_CONTENT = 52;
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
   const bottomPad = Platform.OS === 'android' ? Math.max(insets.bottom, 6) : insets.bottom;
+  const authGate = useAuthGate();
+
+  if (authGate.status === 'loading') {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.offWhite }}>
+        <ActivityIndicator size="large" color={colors.primaryDark} />
+      </View>
+    );
+  }
+
+  if (authGate.status === 'signedOut') {
+    return <Redirect href="/login" />;
+  }
 
   return (
     <Tabs
@@ -37,9 +51,9 @@ export default function TabLayout() {
       }}
     >
       <Tabs.Screen
-        name="index"
+        name="home"
         options={{
-          href: '/',
+          href: '/home',
           title: 'Home',
           tabBarIcon: ({ color, size, focused }) => (
             <Chrome size={size} color={color} strokeWidth={focused ? 2.5 : 2} />

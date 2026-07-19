@@ -37,7 +37,7 @@ export default function ScanScreen() {
 
   useEffect(() => {
     if (!auth.currentUser) {
-      router.replace('/(auth)/login');
+      router.replace('/login');
       return;
     }
     requestPermission();

@@ -21,7 +21,7 @@ export default function RedeemRoute() {
 
   useEffect(() => {
     if (!auth.currentUser) {
-      router.replace('/(auth)/login');
+      router.replace('/login');
       return;
     }
     requestPermission();
