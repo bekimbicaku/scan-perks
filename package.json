@@ -9,9 +9,9 @@
     "build:web": "node scripts/sync-version.js && expo export --platform web",
     "build:web:github": "node scripts/sync-version.js && cross-env EXPO_EXPORT_STATIC=1 expo export --platform web && node scripts/prepare-github-pages.js",
     "serve:web": "npx expo serve dist",
-    "build:android": "cross-env EAS_NO_VCS=1 eas build --platform android --profile production",
-    "build:android:preview": "cross-env EAS_NO_VCS=1 eas build --platform android --profile preview",
-    "submit:android": "eas submit --platform android --profile production",
+    "build:android": "powershell -ExecutionPolicy Bypass -File ./scripts/eas-build-android.ps1 production",
+    "build:android:preview": "powershell -ExecutionPolicy Bypass -File ./scripts/eas-build-android.ps1 preview",
+    "submit:android": "cross-env EAS_NO_VCS=1 TEMP=C:\\Temp\\eas TMP=C:\\Temp\\eas eas submit --platform android --profile production",
     "lint": "expo lint"
   },
   "dependencies": {

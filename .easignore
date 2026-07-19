@@ -1,15 +1,29 @@
 # EAS upload ignore (in addition to .gitignore)
 node_modules/
 .expo/
+.expo-shared/
+.bolt/
+.idea/
+.vscode/
 dist/
 web-build/
 .git/
+.github/
 *.log
 .env
 .env.local
+.env.*.local
 google-play-service-account.json
 firebase-debug.log
 .DS_Store
+coverage/
+android/
+ios/
+functions/node_modules/
+*.jks
+*.p8
+*.p12
+*.mobileprovision
 
 # Windows / system paths (safety)
 AppData/

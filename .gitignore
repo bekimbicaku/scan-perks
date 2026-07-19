@@ -3,8 +3,15 @@ node_modules/
 
 # expo
 .expo/
+.expo-shared/
+.bolt/
 dist/
 web-build/
+
+# IDE
+.idea/
+.vscode/
+*.iml
 
 # native
 *.orig.*
@@ -13,6 +20,8 @@ web-build/
 *.p12
 *.key
 *.mobileprovision
+/android
+/ios
 
 # metro
 .metro-health-check*
