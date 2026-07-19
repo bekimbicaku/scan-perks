@@ -137,6 +137,61 @@ exports.sendOfferNotification = functions.firestore
     }
   });
 
+function resolvePlanFromSession(session) {
+  if (session.metadata?.plan === 'premium' || session.metadata?.plan === 'basic') {
+    return session.metadata.plan;
+  }
+  // Starter is $10 → 1000 cents
+  if (session.amount_total === 1000) {
+    return 'basic';
+  }
+  return 'premium';
+}
+
+function resolveUserIdFromSession(session) {
+  return (
+    session.client_reference_id ||
+    session.metadata?.firebaseUid ||
+    null
+  );
+}
+
+async function activateSubscriptionFromSession(session) {
+  const userId = resolveUserIdFromSession(session);
+  if (!userId) {
+    throw new Error('Checkout session is missing client_reference_id / firebaseUid');
+  }
+
+  const planType = resolvePlanFromSession(session);
+
+  await admin.firestore().collection('users').doc(userId).set(
+    {
+      subscribed: true,
+      plan: planType,
+      planStatus: 'active',
+      lastPayment: admin.firestore.FieldValue.serverTimestamp(),
+      nextPayment: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      stripeCustomerId: session.customer || null,
+      stripeSubscriptionId: session.subscription || null,
+      stripeCheckoutSessionId: session.id || null,
+    },
+    { merge: true }
+  );
+
+  await admin.firestore().collection('businesses').doc(userId).set(
+    {
+      plan: planType,
+      planStatus: 'active',
+      isActive: true,
+      isPremium: planType === 'premium',
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    },
+    { merge: true }
+  );
+
+  return { userId, planType };
+}
+
 // Stripe webhook handler and other existing functions...
 app.post("/webhook", async (req, res) => {
   const sig = req.headers["stripe-signature"];
@@ -151,37 +206,11 @@ app.post("/webhook", async (req, res) => {
 
     switch (event.type) {
       case "checkout.session.completed":
-        const session = event.data.object;
-        const userId = session.client_reference_id;
-        const planType =
-          session.metadata?.plan === 'premium' || session.metadata?.plan === 'basic'
-            ? session.metadata.plan
-            : session.amount_total === 1000
-              ? 'basic'
-              : 'premium';
-
-        if (!userId) {
-          console.error('checkout.session.completed missing client_reference_id');
-          break;
+        try {
+          await activateSubscriptionFromSession(event.data.object);
+        } catch (activateError) {
+          console.error('checkout.session.completed activate failed:', activateError);
         }
-
-        await admin.firestore().collection("users").doc(userId).update({
-          subscribed: true,
-          plan: planType,
-          planStatus: 'active',
-          lastPayment: admin.firestore.FieldValue.serverTimestamp(),
-          nextPayment: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-          stripeCustomerId: session.customer,
-          stripeSubscriptionId: session.subscription
-        });
-
-        await admin.firestore().collection("businesses").doc(userId).set({
-          plan: planType,
-          planStatus: 'active',
-          isActive: true,
-          isPremium: planType === 'premium',
-          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        }, { merge: true });
         break;
 
       case "customer.subscription.deleted":
@@ -386,6 +415,70 @@ exports.createCheckoutSession = functions
         console.error('Error creating checkout session:', error);
         return res.status(500).json({
           error: error.message || 'Failed to create checkout session',
+        });
+      }
+    });
+  });
+
+/**
+ * Called from /payment-success after Stripe redirects back with session_id.
+ * Confirms the Checkout Session with Stripe and activates the plan immediately
+ * (does not wait for the webhook).
+ */
+exports.verifyCheckoutSession = functions
+  .region('europe-west1')
+  .https.onRequest(async (req, res) => {
+    return cors(req, res, async () => {
+      if (req.method !== 'POST') {
+        return res.status(405).json({ error: 'Method not allowed' });
+      }
+
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+
+      try {
+        const token = authHeader.split('Bearer ')[1];
+        const decoded = await admin.auth().verifyIdToken(token);
+        const sessionId =
+          typeof req.body?.sessionId === 'string' ? req.body.sessionId.trim() : '';
+
+        if (!sessionId || !sessionId.startsWith('cs_')) {
+          return res.status(400).json({ error: 'Valid sessionId is required' });
+        }
+
+        const session = await stripe.checkout.sessions.retrieve(sessionId);
+        const sessionUserId = resolveUserIdFromSession(session);
+
+        if (!sessionUserId || sessionUserId !== decoded.uid) {
+          return res.status(403).json({ error: 'Checkout session does not belong to this user' });
+        }
+
+        const paid =
+          session.payment_status === 'paid' ||
+          session.status === 'complete';
+
+        if (!paid) {
+          return res.json({
+            ok: false,
+            status: session.status,
+            paymentStatus: session.payment_status,
+          });
+        }
+
+        const { planType } = await activateSubscriptionFromSession(session);
+
+        return res.json({
+          ok: true,
+          plan: planType,
+          paymentId: session.subscription || session.id,
+          paymentStatus: session.payment_status,
+        });
+      } catch (error) {
+        console.error('Error verifying checkout session:', error);
+        return res.status(500).json({
+          error: error.message || 'Failed to verify checkout session',
         });
       }
     });

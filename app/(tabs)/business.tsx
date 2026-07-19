@@ -23,7 +23,7 @@ import { colors, spacing } from '@/theme';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { auth, getDb, getStorageInstance, deleteBusiness } from '@/lib/firebase';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 
 type BusinessType = 'Bar' | 'Pizzeria' | 'Restaurant' | 'Cafe' | 'Other';
 type Step = 'register' | 'payment' | 'qr-type' | 'success';
@@ -82,6 +82,7 @@ const DEFAULT_BUSINESS_DATA: BusinessData = {
 };
 
 export default function BusinessScreen() {
+  const params = useLocalSearchParams<{ upgraded?: string }>();
   const [mounted, setMounted] = useState(false);
   const [isRegistered, setIsRegistered] = useState(false);
   const [step, setStep] = useState<Step>('register');
@@ -110,6 +111,50 @@ export default function BusinessScreen() {
       checkBusinessRegistration();
     }
   }, [mounted]);
+
+  // After Stripe redirects to /payment-success → /business?upgraded=1
+  useEffect(() => {
+    if (!mounted || params.upgraded !== '1') return;
+
+    const applyUpgrade = async () => {
+      const userId = auth.currentUser?.uid;
+      if (!userId) return;
+
+      try {
+        const userSnap = await getDoc(doc(getDb(), 'users', userId));
+        const userData = userSnap.exists() ? userSnap.data() : null;
+        if (!(userData?.subscribed && userData?.planStatus === 'active')) {
+          return;
+        }
+
+        const plan = (userData.plan === 'premium' ? 'premium' : 'basic') as Plan;
+        setSelectedPlan(plan);
+        setShowPayment(false);
+
+        const businessDoc = await getDoc(doc(getDb(), 'businesses', userId));
+        if (businessDoc.exists()) {
+          setIsRegistered(true);
+          setBusinessData({
+            ...DEFAULT_BUSINESS_DATA,
+            ...(businessDoc.data() as BusinessData),
+            plan,
+          });
+        } else {
+          setStep('qr-type');
+          setBusinessData((prev) => ({
+            ...prev,
+            plan,
+            paymentId: userData.stripeSubscriptionId || userData.stripeCheckoutSessionId,
+            planStatus: 'pending',
+          }));
+        }
+      } catch (err) {
+        console.error('Error applying upgrade return:', err);
+      }
+    };
+
+    void applyUpgrade();
+  }, [mounted, params.upgraded]);
 
   const checkBusinessRegistration = async () => {
     try {
