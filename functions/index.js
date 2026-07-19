@@ -5,16 +5,39 @@ const express = require("express");
 const cors = require('cors')({ origin: true });
 
 admin.initializeApp();
+
+function getStripeSecretKey() {
+  const fromConfig =
+    functions.config().stripe && functions.config().stripe.secret
+      ? functions.config().stripe.secret
+      : '';
+  return (
+    process.env.STRIPE_SECRET_KEY ||
+    process.env.EXPO_PUBLIC_STRIPE_SECRET_KEY ||
+    fromConfig ||
+    ''
+  );
+}
+
+function getStripeWebhookSecret() {
+  const fromConfig =
+    functions.config().stripe && functions.config().stripe.webhooksecret
+      ? functions.config().stripe.webhooksecret
+      : '';
+  return (
+    process.env.STRIPE_WEBHOOK_SECRET ||
+    process.env.EXPO_PUBLIC_STRIPE_WEBHOOK_SECRET ||
+    fromConfig ||
+    ''
+  );
+}
+
+const stripe = Stripe(getStripeSecretKey());
 const app = express();
 
-const stripe = Stripe(process.env.STRIPE_SECRET_KEY || process.env.EXPO_PUBLIC_STRIPE_SECRET_KEY);
-
 app.use(cors);
-app.use(express.json({
-  verify: (req, res, buf) => {
-    req.rawBody = buf;
-  }
-}));
+// Do NOT use express.json() here — it breaks Stripe signature verification.
+// Firebase Functions already provides req.rawBody as a Buffer.
 
 // Send notifications when a new offer is created
 exports.sendOfferNotification = functions.firestore
@@ -202,32 +225,52 @@ async function activateSubscriptionFromSession(session) {
   return { userId, planType };
 }
 
-// Stripe webhook handler and other existing functions...
+// Stripe webhook handler
 app.post("/webhook", async (req, res) => {
   const sig = req.headers["stripe-signature"];
+  const webhookSecret = getStripeWebhookSecret();
+  const payload = req.rawBody;
+
+  if (!webhookSecret) {
+    console.error("[stripeWebhook] STRIPE_WEBHOOK_SECRET / functions.config().stripe.webhooksecret is missing");
+    return res.status(500).send("Webhook secret not configured");
+  }
+
+  if (!sig) {
+    return res.status(400).send("Webhook Error: Missing stripe-signature header");
+  }
+
+  if (!payload) {
+    console.error("[stripeWebhook] Missing req.rawBody — cannot verify Stripe signature");
+    return res.status(400).send("Webhook Error: Missing raw body");
+  }
+
   let event;
+  try {
+    event = stripe.webhooks.constructEvent(payload, sig, webhookSecret);
+  } catch (err) {
+    console.error("[stripeWebhook] Signature verification failed:", err.message);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
 
   try {
-    event = stripe.webhooks.constructEvent(
-      req.rawBody,
-      sig,
-      process.env.STRIPE_WEBHOOK_SECRET || process.env.EXPO_PUBLIC_STRIPE_WEBHOOK_SECRET
-    );
-
     switch (event.type) {
       case "checkout.session.completed":
-        try {
-          await activateSubscriptionFromSession(event.data.object);
-        } catch (activateError) {
-          console.error('checkout.session.completed activate failed:', activateError);
-        }
+        await activateSubscriptionFromSession(event.data.object);
         break;
 
-      case "customer.subscription.deleted":
+      case "customer.subscription.created":
+      case "invoice.paid":
+      case "invoice.payment_succeeded":
+        // Activation is handled on checkout.session.completed; acknowledge these events.
+        break;
+
+      case "customer.subscription.deleted": {
         const subscription = event.data.object;
         const customerId = subscription.customer;
 
-        const usersSnapshot = await admin.firestore()
+        const usersSnapshot = await admin
+          .firestore()
           .collection("users")
           .where("stripeCustomerId", "==", customerId)
           .get();
@@ -235,40 +278,52 @@ app.post("/webhook", async (req, res) => {
         if (!usersSnapshot.empty) {
           const userDoc = usersSnapshot.docs[0];
           const userId = userDoc.id;
-          
-          await userDoc.ref.update({
-            subscribed: false,
-            planStatus: 'cancelled',
-            subscriptionEndDate: admin.firestore.FieldValue.serverTimestamp()
-          });
+
+          await userDoc.ref.set(
+            {
+              subscribed: false,
+              planStatus: "cancelled",
+              subscriptionEndDate: admin.firestore.FieldValue.serverTimestamp(),
+            },
+            { merge: true }
+          );
 
           const businessRef = admin.firestore().collection("businesses").doc(userId);
-          await businessRef.update({
-            isActive: false,
-            deactivatedAt: admin.firestore.FieldValue.serverTimestamp(),
-            subscriptionStatus: 'cancelled'
-          });
+          const businessSnap = await businessRef.get();
+          if (businessSnap.exists) {
+            await businessRef.set(
+              {
+                isActive: false,
+                deactivatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                subscriptionStatus: "cancelled",
+              },
+              { merge: true }
+            );
 
-          const qrCodesRef = businessRef.collection('qr_codes');
-          const qrCodesSnapshot = await qrCodesRef.get();
-          const batch = admin.firestore().batch();
-
-          qrCodesSnapshot.docs.forEach(doc => {
-            batch.update(doc.ref, {
-              isActive: false,
-              deactivatedAt: admin.firestore.FieldValue.serverTimestamp()
-            });
-          });
-
-          await batch.commit();
+            const qrCodesSnapshot = await businessRef.collection("qr_codes").get();
+            if (!qrCodesSnapshot.empty) {
+              const batch = admin.firestore().batch();
+              qrCodesSnapshot.docs.forEach((qrDoc) => {
+                batch.update(qrDoc.ref, {
+                  isActive: false,
+                  deactivatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                });
+              });
+              await batch.commit();
+            }
+          }
         }
         break;
+      }
+
+      default:
+        console.log("[stripeWebhook] Unhandled event type:", event.type);
     }
 
-    res.json({ received: true });
+    return res.json({ received: true });
   } catch (err) {
-    console.error('Webhook Error:', err.message);
-    return res.status(400).send(`Webhook Error: ${err.message}`);
+    console.error("[stripeWebhook] Handler error:", err.message);
+    return res.status(500).send(`Webhook handler error: ${err.message}`);
   }
 });
 
