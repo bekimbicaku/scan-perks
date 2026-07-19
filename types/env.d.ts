@@ -19,10 +19,16 @@ declare global {
       EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: string;
       EXPO_PUBLIC_FIREBASE_APP_ID: string;
       EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID: string;
-      EXPO_PUBLIC_STRIPE_SECRET_KEY: string;
-      EXPO_PUBLIC_STRIPE_WEBHOOK_SECRET: string;
       EXPO_PUBLIC_STRIPE_LINK_BASIC: string;
       EXPO_PUBLIC_STRIPE_LINK_PREMIUM: string;
+      EXPO_PUBLIC_STRIPE_PRODUCT_STARTER: string;
+      EXPO_PUBLIC_STRIPE_PRODUCT_GROWTH: string;
+      /** @deprecated Prefer STRIPE_SECRET_KEY (server-only) */
+      EXPO_PUBLIC_STRIPE_SECRET_KEY?: string;
+      /** @deprecated Prefer STRIPE_WEBHOOK_SECRET (server-only) */
+      EXPO_PUBLIC_STRIPE_WEBHOOK_SECRET?: string;
+      STRIPE_SECRET_KEY?: string;
+      STRIPE_WEBHOOK_SECRET?: string;
       EXPO_PUBLIC_PROJECT_ID: string;
       EXPO_PUBLIC_APP_URL: string;
       EXPO_PUBLIC_ANDROID_STORE_URL: string;

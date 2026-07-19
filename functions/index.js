@@ -7,7 +7,7 @@ const cors = require('cors')({ origin: true });
 admin.initializeApp();
 const app = express();
 
-const stripe = Stripe(process.env.EXPO_PUBLIC_STRIPE_SECRET_KEY);
+const stripe = Stripe(process.env.STRIPE_SECRET_KEY || process.env.EXPO_PUBLIC_STRIPE_SECRET_KEY);
 
 app.use(cors);
 app.use(express.json({
@@ -146,14 +146,24 @@ app.post("/webhook", async (req, res) => {
     event = stripe.webhooks.constructEvent(
       req.rawBody,
       sig,
-      process.env.EXPO_PUBLIC_STRIPE_WEBHOOK_SECRET
+      process.env.STRIPE_WEBHOOK_SECRET || process.env.EXPO_PUBLIC_STRIPE_WEBHOOK_SECRET
     );
 
     switch (event.type) {
       case "checkout.session.completed":
         const session = event.data.object;
         const userId = session.client_reference_id;
-        const planType = session.amount_total === 1000 ? 'basic' : 'premium';
+        const planType =
+          session.metadata?.plan === 'premium' || session.metadata?.plan === 'basic'
+            ? session.metadata.plan
+            : session.amount_total === 1000
+              ? 'basic'
+              : 'premium';
+
+        if (!userId) {
+          console.error('checkout.session.completed missing client_reference_id');
+          break;
+        }
 
         await admin.firestore().collection("users").doc(userId).update({
           subscribed: true,
@@ -164,6 +174,14 @@ app.post("/webhook", async (req, res) => {
           stripeCustomerId: session.customer,
           stripeSubscriptionId: session.subscription
         });
+
+        await admin.firestore().collection("businesses").doc(userId).set({
+          plan: planType,
+          planStatus: 'active',
+          isActive: true,
+          isPremium: planType === 'premium',
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        }, { merge: true });
         break;
 
       case "customer.subscription.deleted":
@@ -278,6 +296,96 @@ exports.createBillingPortalSession = functions
         console.error('Error creating billing portal session:', error);
         return res.status(500).json({
           error: error.message || 'Failed to create billing portal session',
+        });
+      }
+    });
+  });
+const STRIPE_PRODUCT_IDS = {
+  basic: process.env.EXPO_PUBLIC_STRIPE_PRODUCT_STARTER || 'prod_UuhFUxyxEZPENE',
+  premium: process.env.EXPO_PUBLIC_STRIPE_PRODUCT_GROWTH || 'prod_UuhGlzjSeNaCwR',
+};
+
+async function getActivePriceId(productId) {
+  const prices = await stripe.prices.list({
+    product: productId,
+    active: true,
+    limit: 10,
+  });
+  const recurring = prices.data.find((price) => price.type === 'recurring') || prices.data[0];
+  if (!recurring || !recurring.id) {
+    throw new Error('No active Stripe price found for product ' + productId);
+  }
+  return recurring.id;
+}
+
+exports.createCheckoutSession = functions
+  .region('europe-west1')
+  .https.onRequest(async (req, res) => {
+    return cors(req, res, async () => {
+      if (req.method !== 'POST') {
+        return res.status(405).json({ error: 'Method not allowed' });
+      }
+
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+
+      try {
+        const token = authHeader.split('Bearer ')[1];
+        const decoded = await admin.auth().verifyIdToken(token);
+        const plan = req.body && req.body.plan === 'premium' ? 'premium' : 'basic';
+        const productId = STRIPE_PRODUCT_IDS[plan];
+        const priceId = await getActivePriceId(productId);
+
+        const successUrl =
+          req.body && typeof req.body.successUrl === 'string' && req.body.successUrl.startsWith('http')
+            ? req.body.successUrl
+            : 'https://app.scan-perks.com/payment-success';
+        const cancelUrl =
+          req.body && typeof req.body.cancelUrl === 'string' && req.body.cancelUrl.startsWith('http')
+            ? req.body.cancelUrl
+            : 'https://app.scan-perks.com/payment-cancelled';
+
+        const session = await stripe.checkout.sessions.create({
+          mode: 'subscription',
+          line_items: [{ price: priceId, quantity: 1 }],
+          success_url: successUrl.indexOf('{CHECKOUT_SESSION_ID}') >= 0
+            ? successUrl
+            : successUrl + (successUrl.indexOf('?') >= 0 ? '&' : '?') + 'session_id={CHECKOUT_SESSION_ID}',
+          cancel_url: cancelUrl,
+          client_reference_id: decoded.uid,
+          customer_email: decoded.email || undefined,
+          metadata: {
+            firebaseUid: decoded.uid,
+            plan: plan,
+            productId: productId,
+          },
+          subscription_data: {
+            metadata: {
+              firebaseUid: decoded.uid,
+              plan: plan,
+              productId: productId,
+            },
+          },
+          allow_promotion_codes: true,
+        });
+
+        if (!session.url) {
+          return res.status(500).json({ error: 'Stripe did not return a checkout URL' });
+        }
+
+        return res.json({
+          url: session.url,
+          sessionId: session.id,
+          plan: plan,
+          productId: productId,
+          priceId: priceId,
+        });
+      } catch (error) {
+        console.error('Error creating checkout session:', error);
+        return res.status(500).json({
+          error: error.message || 'Failed to create checkout session',
         });
       }
     });

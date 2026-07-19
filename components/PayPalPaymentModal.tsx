@@ -5,8 +5,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { auth } from '@/lib/firebase';
 import { onSnapshot, doc } from 'firebase/firestore';
 import { getDb } from '@/lib/firebase';
-
-import { getStripePaymentLink } from '@/lib/stripePaymentLinks';
+import { openStripeCheckout } from '@/lib/stripeCheckout';
+import { planFromAmount, planFromDisplayName } from '@/lib/stripeProducts';
 
 interface PayPalPaymentModalProps {
   visible: boolean;
@@ -25,17 +25,17 @@ export default function PayPalPaymentModal({
 }: PayPalPaymentModalProps) {
   const [loading, setLoading] = useState(false);
   const [paymentInitiated, setPaymentInitiated] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!auth.currentUser) return;
 
-    // Listen for changes in the user document
-    const unsubscribe = onSnapshot(doc(getDb(), 'users', auth.currentUser.uid), (doc) => {
-      if (doc.exists()) {
-        const data = doc.data();
-        // Check if subscription is active and payment was successful
+    const unsubscribe = onSnapshot(doc(getDb(), 'users', auth.currentUser.uid), (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
         if (data.subscribed && data.planStatus === 'active') {
-          const paymentId = data.stripeSubscriptionId || 'stripe_' + Math.random().toString(36).substr(2, 9);
+          const paymentId =
+            data.stripeSubscriptionId || 'stripe_' + Math.random().toString(36).substr(2, 9);
           handlePaymentSuccess(paymentId);
         }
       }
@@ -48,7 +48,8 @@ export default function PayPalPaymentModal({
     if (Platform.OS === 'web') {
       const handleMessage = (event: MessageEvent) => {
         if (event.data?.type === 'stripe-checkout-completed') {
-          const paymentId = event.data.paymentId || 'stripe_' + Math.random().toString(36).substr(2, 9);
+          const paymentId =
+            event.data.paymentId || 'stripe_' + Math.random().toString(36).substr(2, 9);
           handlePaymentSuccess(paymentId);
         }
       };
@@ -61,6 +62,7 @@ export default function PayPalPaymentModal({
   const handlePaymentSuccess = (paymentId: string) => {
     setPaymentInitiated(false);
     setLoading(false);
+    setError(null);
     onSuccess(paymentId);
     onClose();
   };
@@ -69,28 +71,17 @@ export default function PayPalPaymentModal({
     if (!auth.currentUser) return;
 
     setLoading(true);
+    setError(null);
     try {
-      const planType = amount === 10 ? 'basic' : 'premium';
-      const paymentLink = getStripePaymentLink(planType);
-      
-      if (Platform.OS === 'web') {
-        const successUrl = encodeURIComponent(`${window.location.origin}/payment-success`);
-        const cancelUrl = encodeURIComponent(`${window.location.origin}/payment-cancelled`);
-        const fullPaymentLink = `${paymentLink}?client_reference_id=${auth.currentUser.uid}&success_url=${successUrl}&cancel_url=${cancelUrl}`;
-        
-        const stripeWindow = window.open(fullPaymentLink, '_blank');
-        if (stripeWindow) {
-          setPaymentInitiated(true);
-        }
-      } else {
-        const returnUrl = encodeURIComponent(`scanperks://payment-success`);
-        const cancelUrl = encodeURIComponent(`scanperks://payment-cancelled`);
-        const fullPaymentLink = `${paymentLink}?client_reference_id=${auth.currentUser.uid}&success_url=${returnUrl}&cancel_url=${cancelUrl}`;
-        
-        await Linking.openURL(fullPaymentLink);
-        setPaymentInitiated(true);
+      const planType = planFromDisplayName(plan) || planFromAmount(amount);
+      await openStripeCheckout({
+        plan: planType,
+        amount,
+        planName: plan,
+      });
+      setPaymentInitiated(true);
 
-        // Set up URL listener for mobile
+      if (Platform.OS !== 'web') {
         const subscription = Linking.addEventListener('url', ({ url }) => {
           if (url.includes('payment-success')) {
             const paymentId = 'stripe_' + Math.random().toString(36).substr(2, 9);
@@ -103,8 +94,9 @@ export default function PayPalPaymentModal({
           }
         });
       }
-    } catch (error) {
-      console.error('Payment error:', error);
+    } catch (err) {
+      console.error('Payment error:', err);
+      setError(err instanceof Error ? err.message : 'Payment failed. Please try again.');
       setPaymentInitiated(false);
       setLoading(false);
     }
@@ -115,8 +107,8 @@ export default function PayPalPaymentModal({
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
           <Text style={styles.headerText}>Payment</Text>
-          <TouchableOpacity 
-            style={styles.closeButton} 
+          <TouchableOpacity
+            style={styles.closeButton}
             onPress={onClose}
             disabled={loading || paymentInitiated}
           >
@@ -130,35 +122,33 @@ export default function PayPalPaymentModal({
             <Text style={styles.planPrice}>${amount}/month</Text>
           </View>
 
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
           {paymentInitiated ? (
             <View style={styles.processingContainer}>
-              <Text style={styles.processingText}>
-                Payment in Progress
-              </Text>
+              <Text style={styles.processingText}>Payment in Progress</Text>
               <Text style={styles.processingSubtext}>
-                Please complete the payment in your browser.
-                Once completed, you'll be automatically redirected.
+                Please complete the payment in Stripe. Once completed, your plan will activate
+                automatically.
               </Text>
             </View>
           ) : (
             <View style={styles.paymentMethods}>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[styles.paymentButton, loading && styles.paymentButtonDisabled]}
                 onPress={handlePayment}
                 disabled={loading}
               >
                 <CreditCard size={24} color="#fff" />
                 <Text style={styles.paymentButtonText}>
-                  {loading ? 'Processing...' : 'Pay with Stripe'}
+                  {loading ? 'Opening Stripe...' : 'Pay with Stripe'}
                 </Text>
               </TouchableOpacity>
             </View>
           )}
 
           <View style={styles.securePayment}>
-            <Text style={styles.secureText}>
-              🔒 Secure payment powered by Stripe
-            </Text>
+            <Text style={styles.secureText}>Secure payment powered by Stripe</Text>
           </View>
         </View>
       </SafeAreaView>
@@ -167,10 +157,7 @@ export default function PayPalPaymentModal({
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
+  container: { flex: 1, backgroundColor: '#fff' },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -179,20 +166,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#e2e8f0',
   },
-  headerText: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#0f172a',
-  },
-  closeButton: {
-    padding: 8,
-    borderRadius: 8,
-    backgroundColor: '#f1f5f9',
-  },
-  content: {
-    padding: 20,
-    flex: 1,
-  },
+  headerText: { fontSize: 20, fontWeight: 'bold', color: '#0f172a' },
+  closeButton: { padding: 8, borderRadius: 8, backgroundColor: '#f1f5f9' },
+  content: { padding: 20, flex: 1 },
   planSummary: {
     backgroundColor: '#f8fafc',
     padding: 20,
@@ -200,20 +176,10 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     alignItems: 'center',
   },
-  planName: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#0f172a',
-    marginBottom: 8,
-  },
-  planPrice: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#0891b2',
-  },
-  paymentMethods: {
-    gap: 16,
-  },
+  planName: { fontSize: 24, fontWeight: 'bold', color: '#0f172a', marginBottom: 8 },
+  planPrice: { fontSize: 32, fontWeight: 'bold', color: '#0891b2' },
+  errorText: { color: '#ef4444', textAlign: 'center', marginBottom: 16 },
+  paymentMethods: { gap: 16 },
   paymentButton: {
     backgroundColor: '#0891b2',
     padding: 16,
@@ -223,22 +189,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
   },
-  paymentButtonDisabled: {
-    opacity: 0.7,
-  },
-  paymentButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  securePayment: {
-    marginTop: 24,
-    alignItems: 'center',
-  },
-  secureText: {
-    fontSize: 14,
-    color: '#64748b',
-  },
+  paymentButtonDisabled: { opacity: 0.7 },
+  paymentButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  securePayment: { marginTop: 24, alignItems: 'center' },
+  secureText: { fontSize: 14, color: '#64748b' },
   processingContainer: {
     backgroundColor: '#f0fdfa',
     padding: 20,
@@ -246,16 +200,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 24,
   },
-  processingText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#0891b2',
-    marginBottom: 8,
-  },
-  processingSubtext: {
-    fontSize: 14,
-    color: '#64748b',
-    textAlign: 'center',
-    lineHeight: 20,
-  },
+  processingText: { fontSize: 18, fontWeight: 'bold', color: '#0891b2', marginBottom: 8 },
+  processingSubtext: { fontSize: 14, color: '#64748b', textAlign: 'center', lineHeight: 20 },
 });

@@ -2,7 +2,7 @@
   "name": "scan-perks-functions",
   "description": "Cloud Functions for Scan Perks",
   "engines": {
-    "node": "18"
+    "node": "20"
   },
   "main": "index.js",
   "dependencies": {

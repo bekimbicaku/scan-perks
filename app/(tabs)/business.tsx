@@ -46,7 +46,7 @@ const BUSINESS_TYPES: BusinessType[] = ['Bar', 'Pizzeria', 'Restaurant', 'Cafe',
 
 const PLANS = {
   basic: {
-    name: 'Basic Plan',
+    name: 'Starter',
     price: 10,
     features: [
       'Up to 500 scans per month',
@@ -56,7 +56,7 @@ const PLANS = {
     ],
   },
   premium: {
-    name: 'Premium Plan',
+    name: 'Growth',
     price: 15,
     features: [
       'Unlimited scans',
@@ -453,7 +453,7 @@ export default function BusinessScreen() {
       <ManageSubscriptionModal
         visible={showSubscriptionModal}
         onClose={() => setShowSubscriptionModal(false)}
-        currentPlan={businessData.plan === 'basic' ? 'Basic Plan' : 'Premium Plan'}
+        currentPlan={businessData.plan === 'basic' ? 'Starter' : 'Growth'}
         planStartDate={businessData.planStartDate || new Date()}
       />
     </ScrollView>

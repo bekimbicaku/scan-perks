@@ -1,7 +1,7 @@
 import Stripe from 'stripe';
 import { getFirestoreUserData, verifyFirebaseToken } from '@/lib/server/verifyFirebaseToken';
 
-const stripe = new Stripe(process.env.EXPO_PUBLIC_STRIPE_SECRET_KEY!, {
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || process.env.EXPO_PUBLIC_STRIPE_SECRET_KEY!, {
   apiVersion: '2023-10-16',
 });
 
