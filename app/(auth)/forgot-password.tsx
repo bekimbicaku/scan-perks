@@ -1,5 +1,13 @@
 import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Platform } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  ScrollView,
+  Platform,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { sendPasswordResetEmail, auth } from '@/lib/firebase';
@@ -17,25 +25,63 @@ export default function ForgotPasswordScreen() {
       return;
     }
 
+    const trimmed = email.trim().toLowerCase();
+    if (!trimmed.includes('@')) {
+      setError('Please enter a valid email address');
+      return;
+    }
+
     setLoading(true);
     setError('');
 
-    try {
-      const actionCodeSettings =
-        Platform.OS === 'web' && typeof window !== 'undefined'
-          ? {
-              url: `${window.location.origin}/login`,
-              handleCodeInApp: false,
-            }
-          : {
-              url: 'https://app.scan-perks.com/login',
-              handleCodeInApp: false,
-            };
+    const continueUrl =
+      Platform.OS === 'web' && typeof window !== 'undefined'
+        ? `${window.location.origin}/login`
+        : 'https://app.scan-perks.com/login';
 
-      await sendPasswordResetEmail(auth, email.trim(), actionCodeSettings);
+    try {
+      try {
+        await sendPasswordResetEmail(auth, trimmed, {
+          url: continueUrl,
+          handleCodeInApp: false,
+        });
+      } catch (firstError: any) {
+        if (
+          firstError?.code === 'auth/unauthorized-continue-uri' ||
+          firstError?.code === 'auth/invalid-continue-uri'
+        ) {
+          await sendPasswordResetEmail(auth, trimmed);
+        } else {
+          throw firstError;
+        }
+      }
       setSuccess(true);
-    } catch {
-      setError('Failed to send reset email. Please check your email address.');
+    } catch (err: any) {
+      console.error('[forgot-password]', err?.code, err?.message);
+      const code = err?.code || '';
+
+      if (code === 'auth/invalid-email') {
+        setError('That email address looks invalid.');
+      } else if (code === 'auth/user-not-found') {
+        setSuccess(true);
+      } else if (code === 'auth/too-many-requests') {
+        setError('Too many attempts. Wait a few minutes and try again.');
+      } else if (code === 'auth/network-request-failed') {
+        setError('Network error. Check your connection and try again.');
+      } else if (
+        code === 'auth/internal-error' ||
+        (typeof err?.message === 'string' && /smtp|mail|send/i.test(err.message))
+      ) {
+        setError(
+          'Email server rejected the send. In Firebase → Authentication → Templates → SMTP: use the same Gmail address as Sender, and a Google App Password (not your normal password).'
+        );
+      } else {
+        setError(
+          err?.message
+            ? `Could not send reset email (${code || 'error'}). ${err.message}`
+            : 'Could not send reset email. Check Firebase SMTP settings.'
+        );
+      }
     } finally {
       setLoading(false);
     }
@@ -48,9 +94,7 @@ export default function ForgotPasswordScreen() {
           <View style={styles.successContainer}>
             <Send size={48} color="#16a34a" style={styles.successIcon} />
             <Text style={styles.successTitle}>Check Your Email</Text>
-            <Text style={styles.successText}>
-              We've sent password reset instructions to:
-            </Text>
+            <Text style={styles.successText}>We've sent password reset instructions to:</Text>
             <Text style={styles.emailText}>{email}</Text>
             <View style={styles.spamBox}>
               <Text style={styles.spamTitle}>Often lands in Spam / Junk</Text>
@@ -184,12 +228,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     minHeight: 52,
-  },
-    borderRadius: 12,
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 8,
   },
   buttonDisabled: {
     opacity: 0.7,
