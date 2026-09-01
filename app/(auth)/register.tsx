@@ -15,6 +15,7 @@ import { createUserWithEmailAndPassword, auth, getDb } from '@/lib/firebase';
 import { generateReferralCode, isValidReferralCode } from '@/lib/referral';
 import { processReferralSignup } from '@/lib/engagement';
 import { registerForPushNotifications } from '@/lib/notifications';
+import { trackSignUpConversion } from '@/lib/gtag';
 import { Mail, User, Lock, ArrowRight, Gift } from 'lucide-react-native';
 import GlassBackground, { GlassCard } from '@/components/ui/GlassBackground';
 import GlassInput from '@/components/ui/GlassInput';
@@ -76,6 +77,7 @@ export default function RegisterScreen() {
       }
 
       registerForPushNotifications().catch(console.error);
+      await trackSignUpConversion();
       router.replace('/home');
     } catch (err: any) {
       setError(err.message || 'Failed to create account');
