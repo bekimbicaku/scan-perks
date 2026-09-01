@@ -24,6 +24,17 @@ export default function Root({ children }: PropsWithChildren) {
         <link rel="apple-touch-icon" href="/icon.png" />
         <style>{`body { background-color: #F0F9FF; margin: 0; }`}</style>
         <ScrollViewStyleReset />
+        <script async src="https://www.googletagmanager.com/gtag/js?id=AW-659661162" />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.dataLayer = window.dataLayer || [];
+              function gtag(){dataLayer.push(arguments);}
+              gtag('js', new Date());
+              gtag('config', 'AW-659661162');
+            `,
+          }}
+        />
       </head>
       <body>{children}</body>
     </html>
