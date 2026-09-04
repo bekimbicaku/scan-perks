@@ -9,6 +9,9 @@ export interface LoyaltySettings {
   memberPerkTitle: string;
   memberPerkDescription: string;
   memberDiscountPercent: number;
+  welcomeStampEnabled: boolean;
+  birthdayRewardEnabled: boolean;
+  birthdayReward: string;
 }
 
 export async function getLoyaltySettings(businessId: string): Promise<LoyaltySettings> {
@@ -21,6 +24,9 @@ export async function getLoyaltySettings(businessId: string): Promise<LoyaltySet
       memberPerkTitle: data.memberPerkTitle || '',
       memberPerkDescription: data.memberPerkDescription || '',
       memberDiscountPercent: Number(data.memberDiscountPercent) || 0,
+      welcomeStampEnabled: data.welcomeStampEnabled === true,
+      birthdayRewardEnabled: data.birthdayRewardEnabled === true,
+      birthdayReward: data.birthdayReward || 'A birthday treat',
     };
   }
   return {
@@ -29,6 +35,9 @@ export async function getLoyaltySettings(businessId: string): Promise<LoyaltySet
     memberPerkTitle: '',
     memberPerkDescription: '',
     memberDiscountPercent: 0,
+    welcomeStampEnabled: true,
+    birthdayRewardEnabled: true,
+    birthdayReward: 'A birthday treat',
   };
 }
 

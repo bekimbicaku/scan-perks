@@ -14,13 +14,16 @@ import {
   QrCode,
   CreditCard,
   Check,
-  Settings,
   ChevronRight,
+  ChevronLeft,
   Image as ImageIcon,
   ScanLine,
   Mail,
   Phone,
   MapPin,
+  Gift,
+  Sparkles,
+  Cake,
 } from 'lucide-react-native';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
@@ -53,7 +56,7 @@ import {
 } from '@/lib/businessDraft';
 
 type BusinessType = 'Bar' | 'Pizzeria' | 'Restaurant' | 'Cafe' | 'Other';
-type Step = 'register' | 'payment' | 'qr-type' | 'success';
+type Step = 'intro' | 'register' | 'loyalty' | 'payment' | 'qr-type' | 'success';
 type QRType = 'static' | 'dynamic';
 type Plan = 'basic' | 'premium';
 
@@ -117,9 +120,17 @@ export default function BusinessScreen() {
   const [mounted, setMounted] = useState(false);
   const [bootstrapping, setBootstrapping] = useState(true);
   const [isRegistered, setIsRegistered] = useState(false);
-  const [step, setStep] = useState<Step>('register');
+  const [step, setStep] = useState<Step>('intro');
   const [qrType, setQrType] = useState<QRType>('static');
   const [selectedPlan, setSelectedPlan] = useState<Plan>('basic');
+  const [showMoreDetails, setShowMoreDetails] = useState(false);
+  const [loyaltyDraft, setLoyaltyDraft] = useState({
+    scansRequired: 8,
+    reward: 'A free item',
+    welcomeStampEnabled: true,
+    birthdayRewardEnabled: true,
+    birthdayReward: 'A birthday treat',
+  });
   const [showPayment, setShowPayment] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
@@ -242,6 +253,14 @@ export default function BusinessScreen() {
             undefined,
           planStatus: subscribed ? 'pending' : undefined,
         });
+        setLoyaltyDraft((prev) => ({
+          ...prev,
+          scansRequired: draft.scansRequired || prev.scansRequired,
+          reward: draft.reward || prev.reward,
+          welcomeStampEnabled: draft.welcomeStampEnabled ?? prev.welcomeStampEnabled,
+          birthdayRewardEnabled: draft.birthdayRewardEnabled ?? prev.birthdayRewardEnabled,
+          birthdayReward: draft.birthdayReward || prev.birthdayReward,
+        }));
       } else if (auth.currentUser?.email) {
         setBusinessData((prev) => ({
           ...prev,
@@ -265,11 +284,11 @@ export default function BusinessScreen() {
       }
 
       if (draft?.name) {
-        setStep('payment');
+        setStep(userData?.onboardingStep === 'loyalty' ? 'loyalty' : 'payment');
         return;
       }
 
-      setStep('register');
+      setStep('intro');
     } catch (err) {
       console.error('Error bootstrapping business screen:', err);
       setError('Failed to load business data. Please try again later.');
@@ -293,6 +312,11 @@ export default function BusinessScreen() {
       address: data.address,
       logoUrl: data.logoUrl || null,
       plan: data.plan || selectedPlan,
+      scansRequired: loyaltyDraft.scansRequired,
+      reward: loyaltyDraft.reward,
+      welcomeStampEnabled: loyaltyDraft.welcomeStampEnabled,
+      birthdayRewardEnabled: loyaltyDraft.birthdayRewardEnabled,
+      birthdayReward: loyaltyDraft.birthdayReward,
     };
 
     // Survive Stripe full-page redirect even if Firestore write is slow/fails
@@ -377,7 +401,19 @@ export default function BusinessScreen() {
 
       clearLocalBusinessDraft(userId);
 
-      setIsRegistered(true);
+      await setDoc(
+        doc(getDb(), 'businesses', userId, 'settings', 'loyalty'),
+        {
+          scansRequired: loyaltyDraft.scansRequired,
+          reward: loyaltyDraft.reward.trim() || 'A free item',
+          welcomeStampEnabled: loyaltyDraft.welcomeStampEnabled,
+          birthdayRewardEnabled: loyaltyDraft.birthdayRewardEnabled,
+          birthdayReward: loyaltyDraft.birthdayReward.trim() || 'A birthday treat',
+          lastModified: new Date(),
+        },
+        { merge: true }
+      );
+
       setStep('success');
       setError('');
     } catch (err: any) {
@@ -409,9 +445,8 @@ export default function BusinessScreen() {
   };
 
   const handleBusinessRegistration = async () => {
-    if (!businessData.name || !businessData.email || !businessData.phone || 
-        !businessData.address.street || !businessData.address.city || !businessData.address.postalCode) {
-      setError('Please fill in all required fields');
+    if (!businessData.name.trim()) {
+      setError('Add your business name to continue');
       return;
     }
 
@@ -420,7 +455,28 @@ export default function BusinessScreen() {
       const userId = auth.currentUser?.uid;
       if (!userId) throw new Error('Not authenticated');
 
-      // Persist draft before Stripe redirect wipes React state
+      const next = {
+        ...businessData,
+        email: businessData.email.trim() || auth.currentUser?.email || '',
+        plan: selectedPlan,
+      };
+      setBusinessData(next);
+      await saveBusinessDraft(next, 'loyalty');
+      setStep('loyalty');
+    } catch (err: any) {
+      setError(err.message || 'Failed to register business');
+    }
+  };
+
+  const handleLoyaltyContinue = async () => {
+    if (!loyaltyDraft.reward.trim()) {
+      setError('Tell customers what they earn');
+      return;
+    }
+    try {
+      setError('');
+      const userId = auth.currentUser?.uid;
+      if (!userId) throw new Error('Not authenticated');
       await saveBusinessDraft({ ...businessData, plan: selectedPlan }, 'payment');
 
       const userSnap = await getDoc(doc(getDb(), 'users', userId));
@@ -433,10 +489,9 @@ export default function BusinessScreen() {
         setStep('qr-type');
         return;
       }
-
       setStep('payment');
     } catch (err: any) {
-      setError(err.message || 'Failed to register business');
+      setError(err.message || 'Failed to save loyalty setup');
     }
   };
 
@@ -467,6 +522,40 @@ export default function BusinessScreen() {
     }
   };
 
+  const renderBack = (target: Step) => (
+    <TouchableOpacity style={styles.backRow} onPress={() => setStep(target)} activeOpacity={0.8}>
+      <ChevronLeft size={18} color={colors.primaryDark} />
+      <Text style={styles.backText}>Back</Text>
+    </TouchableOpacity>
+  );
+
+  const renderIntro = () => (
+    <View style={styles.section}>
+      <Text style={styles.formTitle}>Open your venue</Text>
+      <Text style={styles.formSubtitle}>
+        Three short steps. You can print a QR and start stamping customers today.
+      </Text>
+      <View style={styles.formCard}>
+        <View style={styles.introRow}>
+          <Building2 size={20} color={colors.primaryDark} />
+          <Text style={styles.introText}>Name your business</Text>
+        </View>
+        <View style={styles.introRow}>
+          <Gift size={20} color={colors.primaryDark} />
+          <Text style={styles.introText}>Set stamps and a reward</Text>
+        </View>
+        <View style={styles.introRow}>
+          <QrCode size={20} color={colors.primaryDark} />
+          <Text style={styles.introText}>Get a QR to put on the counter</Text>
+        </View>
+      </View>
+      <TouchableOpacity style={styles.button} onPress={() => setStep('register')} activeOpacity={0.9}>
+        <Text style={styles.buttonText}>Start setup</Text>
+        <ChevronRight size={20} color="#fff" />
+      </TouchableOpacity>
+    </View>
+  );
+
   const renderRegistrationForm = () => (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -479,18 +568,18 @@ export default function BusinessScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
+        {renderBack('intro')}
         <View style={styles.onboardingHeader}>
           <View style={styles.stepBadgeWrap}>
-            <Text style={styles.stepBadge}>Step 1 of 3</Text>
+            <Text style={styles.stepBadge}>Step 1 of 4</Text>
           </View>
-          <Text style={styles.formTitle}>Business details</Text>
+          <Text style={styles.formTitle}>What is your business called?</Text>
           <Text style={styles.formSubtitle}>
-            Tell customers who you are. You can edit this later in settings.
+            Only a name is required. Phone and address can wait until later.
           </Text>
         </View>
 
         <View style={styles.formCard}>
-          <Text style={styles.cardLabel}>Basics</Text>
           <Text style={styles.fieldLabel}>Business name *</Text>
           <GlassInput
             icon={<Building2 size={18} color={colors.textMuted} />}
@@ -503,7 +592,7 @@ export default function BusinessScreen() {
             style={styles.fieldInput}
           />
 
-          <Text style={[styles.fieldLabel, styles.fieldLabelSpaced]}>Business type *</Text>
+          <Text style={[styles.fieldLabel, styles.fieldLabelSpaced]}>Type</Text>
           <View style={styles.typeGrid}>
             {BUSINESS_TYPES.map((type) => {
               const selected = businessData.type === type;
@@ -538,88 +627,95 @@ export default function BusinessScreen() {
           </TouchableOpacity>
         </View>
 
-        <View style={styles.formCard}>
-          <Text style={styles.cardLabel}>Contact</Text>
-          <Text style={styles.fieldLabel}>Email *</Text>
-          <GlassInput
-            icon={<Mail size={18} color={colors.textMuted} />}
-            placeholder="business@email.com"
-            placeholderTextColor={colors.textMuted}
-            value={businessData.email}
-            onChangeText={(text) => setBusinessData((prev) => ({ ...prev, email: text }))}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoCorrect={false}
-            returnKeyType="next"
-            style={styles.fieldInput}
-          />
+        <TouchableOpacity onPress={() => setShowMoreDetails((v) => !v)} style={styles.moreToggle}>
+          <Text style={styles.moreToggleText}>
+            {showMoreDetails ? 'Hide extra details' : 'Add phone and address (optional)'}
+          </Text>
+        </TouchableOpacity>
 
-          <Text style={[styles.fieldLabel, styles.fieldLabelSpaced]}>Phone *</Text>
-          <GlassInput
-            icon={<Phone size={18} color={colors.textMuted} />}
-            placeholder="+355 ..."
-            placeholderTextColor={colors.textMuted}
-            value={businessData.phone}
-            onChangeText={(text) => setBusinessData((prev) => ({ ...prev, phone: text }))}
-            keyboardType="phone-pad"
-            returnKeyType="next"
-            style={styles.fieldInput}
-          />
-        </View>
-
-        <View style={styles.formCard}>
-          <Text style={styles.cardLabel}>Address</Text>
-          <Text style={styles.fieldLabel}>Street *</Text>
-          <GlassInput
-            icon={<MapPin size={18} color={colors.textMuted} />}
-            placeholder="Street and number"
-            placeholderTextColor={colors.textMuted}
-            value={businessData.address.street}
-            onChangeText={(text) =>
-              setBusinessData((prev) => ({
-                ...prev,
-                address: { ...prev.address, street: text },
-              }))
-            }
-            returnKeyType="next"
-            style={styles.fieldInput}
-          />
-
-          <View style={styles.addressRow}>
-            <View style={styles.addressCol}>
-              <Text style={[styles.fieldLabel, styles.fieldLabelSpaced]}>City *</Text>
+        {showMoreDetails ? (
+          <>
+            <View style={styles.formCard}>
+              <Text style={styles.cardLabel}>Contact</Text>
+              <Text style={styles.fieldLabel}>Email</Text>
               <GlassInput
-                placeholder="City"
+                icon={<Mail size={18} color={colors.textMuted} />}
+                placeholder="business@email.com"
                 placeholderTextColor={colors.textMuted}
-                value={businessData.address.city}
+                value={businessData.email}
+                onChangeText={(text) => setBusinessData((prev) => ({ ...prev, email: text }))}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                returnKeyType="next"
+                style={styles.fieldInput}
+              />
+              <Text style={[styles.fieldLabel, styles.fieldLabelSpaced]}>Phone</Text>
+              <GlassInput
+                icon={<Phone size={18} color={colors.textMuted} />}
+                placeholder="+355 ..."
+                placeholderTextColor={colors.textMuted}
+                value={businessData.phone}
+                onChangeText={(text) => setBusinessData((prev) => ({ ...prev, phone: text }))}
+                keyboardType="phone-pad"
+                returnKeyType="next"
+                style={styles.fieldInput}
+              />
+            </View>
+            <View style={styles.formCard}>
+              <Text style={styles.cardLabel}>Address</Text>
+              <Text style={styles.fieldLabel}>Street</Text>
+              <GlassInput
+                icon={<MapPin size={18} color={colors.textMuted} />}
+                placeholder="Street and number"
+                placeholderTextColor={colors.textMuted}
+                value={businessData.address.street}
                 onChangeText={(text) =>
                   setBusinessData((prev) => ({
                     ...prev,
-                    address: { ...prev.address, city: text },
+                    address: { ...prev.address, street: text },
                   }))
                 }
                 returnKeyType="next"
                 style={styles.fieldInput}
               />
+              <View style={styles.addressRow}>
+                <View style={styles.addressCol}>
+                  <Text style={[styles.fieldLabel, styles.fieldLabelSpaced]}>City</Text>
+                  <GlassInput
+                    placeholder="City"
+                    placeholderTextColor={colors.textMuted}
+                    value={businessData.address.city}
+                    onChangeText={(text) =>
+                      setBusinessData((prev) => ({
+                        ...prev,
+                        address: { ...prev.address, city: text },
+                      }))
+                    }
+                    returnKeyType="next"
+                    style={styles.fieldInput}
+                  />
+                </View>
+                <View style={styles.addressColNarrow}>
+                  <Text style={[styles.fieldLabel, styles.fieldLabelSpaced]}>Postal</Text>
+                  <GlassInput
+                    placeholder="Code"
+                    placeholderTextColor={colors.textMuted}
+                    value={businessData.address.postalCode}
+                    onChangeText={(text) =>
+                      setBusinessData((prev) => ({
+                        ...prev,
+                        address: { ...prev.address, postalCode: text },
+                      }))
+                    }
+                    returnKeyType="done"
+                    style={styles.fieldInput}
+                  />
+                </View>
+              </View>
             </View>
-            <View style={styles.addressColNarrow}>
-              <Text style={[styles.fieldLabel, styles.fieldLabelSpaced]}>Postal *</Text>
-              <GlassInput
-                placeholder="Code"
-                placeholderTextColor={colors.textMuted}
-                value={businessData.address.postalCode}
-                onChangeText={(text) =>
-                  setBusinessData((prev) => ({
-                    ...prev,
-                    address: { ...prev.address, postalCode: text },
-                  }))
-                }
-                returnKeyType="done"
-                style={styles.fieldInput}
-              />
-            </View>
-          </View>
-        </View>
+          </>
+        ) : null}
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
@@ -628,11 +724,99 @@ export default function BusinessScreen() {
           onPress={handleBusinessRegistration}
           activeOpacity={0.9}
         >
-          <Text style={styles.buttonText}>Continue to plans</Text>
+          <Text style={styles.buttonText}>Continue</Text>
           <ChevronRight size={20} color="#fff" />
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
+  );
+
+  const renderLoyaltySetup = () => (
+    <View style={styles.section}>
+      {renderBack('register')}
+      <View style={styles.stepBadgeWrap}>
+        <Text style={styles.stepBadge}>Step 2 of 4</Text>
+      </View>
+      <Text style={styles.formTitle}>What do customers earn?</Text>
+      <Text style={styles.formSubtitle}>
+        Keep it simple. Cafes usually use 8 stamps for a free item.
+      </Text>
+
+      <View style={styles.formCard}>
+        <Text style={styles.fieldLabel}>Stamps needed</Text>
+        <View style={styles.typeGrid}>
+          {[6, 8, 10, 12].map((count) => {
+            const selected = loyaltyDraft.scansRequired === count;
+            return (
+              <TouchableOpacity
+                key={count}
+                style={[styles.typeChip, selected && styles.typeChipSelected]}
+                onPress={() => setLoyaltyDraft((prev) => ({ ...prev, scansRequired: count }))}
+              >
+                <Text style={[styles.typeChipText, selected && styles.typeChipTextSelected]}>
+                  {count}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+        <Text style={[styles.fieldLabel, styles.fieldLabelSpaced]}>Reward</Text>
+        <GlassInput
+          icon={<Gift size={18} color={colors.textMuted} />}
+          placeholder="e.g. Free coffee"
+          value={loyaltyDraft.reward}
+          onChangeText={(text) => setLoyaltyDraft((prev) => ({ ...prev, reward: text }))}
+          style={styles.fieldInput}
+        />
+      </View>
+
+      <View style={styles.formCard}>
+        <Text style={styles.cardLabel}>Loved extras</Text>
+        <TouchableOpacity
+          style={[styles.toggleRow, loyaltyDraft.welcomeStampEnabled && styles.toggleRowOn]}
+          onPress={() =>
+            setLoyaltyDraft((prev) => ({ ...prev, welcomeStampEnabled: !prev.welcomeStampEnabled }))
+          }
+        >
+          <Sparkles size={18} color={loyaltyDraft.welcomeStampEnabled ? colors.primaryDark : colors.textMuted} />
+          <View style={styles.flex}>
+            <Text style={styles.toggleTitle}>Welcome stamp</Text>
+            <Text style={styles.toggleHint}>First visit starts at 1 stamp, not empty.</Text>
+          </View>
+          <Text style={styles.toggleState}>{loyaltyDraft.welcomeStampEnabled ? 'On' : 'Off'}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.toggleRow, loyaltyDraft.birthdayRewardEnabled && styles.toggleRowOn]}
+          onPress={() =>
+            setLoyaltyDraft((prev) => ({
+              ...prev,
+              birthdayRewardEnabled: !prev.birthdayRewardEnabled,
+            }))
+          }
+        >
+          <Cake size={18} color={loyaltyDraft.birthdayRewardEnabled ? colors.primaryDark : colors.textMuted} />
+          <View style={styles.flex}>
+            <Text style={styles.toggleTitle}>Birthday treat</Text>
+            <Text style={styles.toggleHint}>Auto-issue a reward during their birthday week.</Text>
+          </View>
+          <Text style={styles.toggleState}>{loyaltyDraft.birthdayRewardEnabled ? 'On' : 'Off'}</Text>
+        </TouchableOpacity>
+        {loyaltyDraft.birthdayRewardEnabled ? (
+          <GlassInput
+            placeholder="Birthday reward, e.g. Free pastry"
+            value={loyaltyDraft.birthdayReward}
+            onChangeText={(text) => setLoyaltyDraft((prev) => ({ ...prev, birthdayReward: text }))}
+            style={styles.fieldInput}
+          />
+        ) : null}
+      </View>
+
+      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+      <TouchableOpacity style={styles.button} onPress={handleLoyaltyContinue} activeOpacity={0.9}>
+        <Text style={styles.buttonText}>Continue to plans</Text>
+        <ChevronRight size={20} color="#fff" />
+      </TouchableOpacity>
+    </View>
   );
 
   const renderDashboard = () => (
@@ -724,8 +908,9 @@ export default function BusinessScreen() {
 
   const renderPlanSelection = () => (
     <View style={styles.section}>
+      {renderBack('loyalty')}
       <View style={styles.stepBadgeWrap}>
-        <Text style={styles.stepBadge}>Step 2 of 3</Text>
+        <Text style={styles.stepBadge}>Step 3 of 4</Text>
       </View>
       <Text style={styles.formTitle}>Choose your plan</Text>
       <Text style={styles.formSubtitle}>Pick what fits your venue. You can change later.</Text>
@@ -790,11 +975,14 @@ export default function BusinessScreen() {
 
   const renderQRTypeSelection = () => (
     <View style={styles.section}>
+      {renderBack('payment')}
       <View style={styles.stepBadgeWrap}>
-        <Text style={styles.stepBadge}>Step 3 of 3</Text>
+        <Text style={styles.stepBadge}>Step 4 of 4</Text>
       </View>
-      <Text style={styles.formTitle}>Choose QR type</Text>
-      <Text style={styles.formSubtitle}>Static is simplest for most venues. Dynamic for unique codes per visit.</Text>
+      <Text style={styles.formTitle}>How should customers stamp?</Text>
+      <Text style={styles.formSubtitle}>
+        Static QR is the right choice for most cafes, bars, and shops. Put one poster on the counter.
+      </Text>
       
       <View style={styles.qrOptions}>
         <TouchableOpacity 
@@ -803,11 +991,12 @@ export default function BusinessScreen() {
           activeOpacity={0.9}
         >
           <QrCode size={32} color={qrType === 'static' ? colors.primaryDark : colors.textMuted} />
+          <Text style={styles.recommended}>Recommended</Text>
           <Text style={[styles.qrOptionTitle, qrType === 'static' && styles.qrOptionTitleSelected]}>
-            Static QR
+            Counter QR
           </Text>
           <Text style={styles.qrOptionDescription}>
-            One code for all customers
+            One code for every visit. Print it once.
           </Text>
         </TouchableOpacity>
 
@@ -818,10 +1007,10 @@ export default function BusinessScreen() {
         >
           <Building2 size={32} color={qrType === 'dynamic' ? colors.primaryDark : colors.textMuted} />
           <Text style={[styles.qrOptionTitle, qrType === 'dynamic' && styles.qrOptionTitleSelected]}>
-            Dynamic QR
+            POS / unique codes
           </Text>
           <Text style={styles.qrOptionDescription}>
-            Unique code per visit
+            Advanced. New code per receipt.
           </Text>
         </TouchableOpacity>
       </View>
@@ -829,7 +1018,7 @@ export default function BusinessScreen() {
       <QRInstructions type={qrType} />
 
       <TouchableOpacity style={styles.button} onPress={handleQRTypeSelection} activeOpacity={0.9}>
-        <Text style={styles.buttonText}>Complete setup</Text>
+        <Text style={styles.buttonText}>Create my QR</Text>
       </TouchableOpacity>
     </View>
   );
@@ -839,12 +1028,24 @@ export default function BusinessScreen() {
       <View style={styles.successIcon}>
         <Check size={48} color="#0891b2" />
       </View>
-      <Text style={styles.successTitle}>Registration Complete!</Text>
+      <Text style={styles.successTitle}>{businessData.name} is live</Text>
       <Text style={styles.successDescription}>
-        Your business profile has been created successfully. You can now start managing your loyalty program.
+        Print your QR, put it on the counter, and start stamping. Welcome stamps and birthday treats are already on.
       </Text>
-      
-      <QRInstructions type={qrType} />
+      <TouchableOpacity
+        style={styles.button}
+        onPress={() => {
+          setIsRegistered(true);
+          setShowQRModal(true);
+        }}
+        activeOpacity={0.9}
+      >
+        <QrCode size={20} color="#fff" />
+        <Text style={styles.buttonText}>View and print QR</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.secondaryButton} onPress={() => setIsRegistered(true)}>
+        <Text style={styles.secondaryButtonText}>Go to dashboard</Text>
+      </TouchableOpacity>
     </View>
   );
 
@@ -862,6 +1063,10 @@ export default function BusinessScreen() {
           </View>
         ) : isRegistered ? (
           renderDashboard()
+        ) : step === 'intro' ? (
+          <ScrollView contentContainerStyle={styles.onboardingScroll} showsVerticalScrollIndicator={false}>
+            {renderIntro()}
+          </ScrollView>
         ) : step === 'register' ? (
           renderRegistrationForm()
         ) : (
@@ -871,6 +1076,7 @@ export default function BusinessScreen() {
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
+            {step === 'loyalty' && renderLoyaltySetup()}
             {step === 'payment' && renderPlanSelection()}
             {step === 'qr-type' && renderQRTypeSelection()}
             {step === 'success' && renderSuccess()}
@@ -1324,4 +1530,44 @@ const styles = StyleSheet.create({
   },
   dangerLink: { alignItems: 'center', padding: spacing.lg },
   dangerText: { color: colors.error, fontWeight: '600' },
+  backRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    alignSelf: 'flex-start',
+    minHeight: 40,
+  },
+  backText: { color: colors.primaryDark, fontWeight: '600', fontSize: 15 },
+  introRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: 6 },
+  introText: { fontSize: 16, color: colors.navy, fontWeight: '600', flex: 1 },
+  moreToggle: { alignSelf: 'center', paddingVertical: spacing.sm },
+  moreToggleText: { color: colors.primaryDark, fontWeight: '600', fontSize: 14 },
+  toggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    padding: spacing.sm,
+    borderRadius: 14,
+    backgroundColor: colors.offWhite,
+  },
+  toggleRowOn: {
+    backgroundColor: colors.glass.tint,
+  },
+  toggleTitle: { fontSize: 15, fontWeight: '700', color: colors.navy },
+  toggleHint: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
+  toggleState: { fontWeight: '700', color: colors.primaryDark },
+  recommended: {
+    marginTop: 8,
+    fontSize: 11,
+    fontWeight: '800',
+    color: colors.success,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  secondaryButton: {
+    marginTop: spacing.sm,
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+  },
+  secondaryButtonText: { color: colors.primaryDark, fontWeight: '700', fontSize: 16 },
 });

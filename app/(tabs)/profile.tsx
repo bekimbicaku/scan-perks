@@ -3,17 +3,21 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-nati
 import ScreenContainer from '@/components/ui/ScreenContainer';
 import { signOut, auth, getDb } from '@/lib/firebase';
 import { router, useRootNavigationState } from 'expo-router';
-import { LogOut, Tag, TriangleAlert as AlertTriangle, User, Gift, CreditCard } from 'lucide-react-native';
-import { collection, query, where, getDocs, onSnapshot, doc, getDoc } from 'firebase/firestore';
+import { LogOut, Tag, TriangleAlert as AlertTriangle, User, Gift, CreditCard, Cake } from 'lucide-react-native';
+import { collection, query, where, getDocs, onSnapshot, doc, getDoc, updateDoc } from 'firebase/firestore';
 import DeleteAccountModal from '@/components/DeleteAccountModal';
 import RewardsWallet from '@/components/RewardsWallet';
 import LoyaltyCards from '@/components/LoyaltyCards';
 import ReferralHub from '@/components/ReferralHub';
+import NotificationPermissionCard from '@/components/NotificationPermissionCard';
 import BrandLogo from '@/components/ui/BrandLogo';
 import StatCard from '@/components/ui/StatCard';
 import GlassBackground, { GlassCard } from '@/components/ui/GlassBackground';
 import EmptyState from '@/components/ui/EmptyState';
 import { colors, spacing, typography } from '@/theme';
+import GlassInput from '@/components/ui/GlassInput';
+import GlassButton from '@/components/ui/GlassButton';
+import { formatBirthday, parseBirthdayInput } from '@/lib/birthday';
 
 interface Offer {
   id: string;
@@ -36,6 +40,8 @@ export default function ProfileScreen() {
   const [referralCode, setReferralCode] = useState('');
   const [referralCount, setReferralCount] = useState(0);
   const [referralBonusScans, setReferralBonusScans] = useState(0);
+  const [birthday, setBirthday] = useState('');
+  const [birthdaySaved, setBirthdaySaved] = useState(false);
   const navigationState = useRootNavigationState();
 
   useEffect(() => {
@@ -53,6 +59,7 @@ export default function ProfileScreen() {
         setReferralCode(data.referralCode || '');
         setReferralCount(data.referralCount || 0);
         setReferralBonusScans(data.referralBonusScans || 0);
+        setBirthday(formatBirthday(data.birthdayMonth, data.birthdayDay));
       }
     });
 
@@ -119,6 +126,21 @@ export default function ProfileScreen() {
     }
   };
 
+  const handleSaveBirthday = async () => {
+    if (!auth.currentUser) return;
+    const parsed = birthday.trim() ? parseBirthdayInput(birthday) : null;
+    if (birthday.trim() && !parsed) {
+      setError('Birthday should look like 05-14');
+      return;
+    }
+    await updateDoc(doc(getDb(), 'users', auth.currentUser.uid), {
+      birthdayMonth: parsed?.month || null,
+      birthdayDay: parsed?.day || null,
+    });
+    setBirthdaySaved(true);
+    setTimeout(() => setBirthdaySaved(false), 2000);
+  };
+
   const handleSignOut = async () => {
     await signOut(auth);
     router.replace('/login');
@@ -149,6 +171,10 @@ export default function ProfileScreen() {
           <View style={styles.statsRow}>
             <StatCard icon={<Tag size={20} color={colors.primaryDark} />} label="Total Points" value={stats.totalPoints} />
             <StatCard icon={<Gift size={20} color={colors.success} />} label="Active Rewards" value={stats.totalRewards} accent={colors.success} />
+          </View>
+
+          <View style={styles.section}>
+            <NotificationPermissionCard compact />
           </View>
 
           {referralCode ? (
@@ -210,6 +236,27 @@ export default function ProfileScreen() {
                 </GlassCard>
               ))
             )}
+          </View>
+
+          <View style={styles.section}>
+            <GlassCard style={styles.birthdayCard}>
+              <Cake size={20} color={colors.warning} />
+              <Text style={styles.sectionTitle}>Birthday treat</Text>
+              <Text style={styles.birthdayHint}>
+                Add MM-DD so participating venues can send you a birthday reward.
+              </Text>
+              <GlassInput
+                placeholder="MM-DD"
+                value={birthday}
+                onChangeText={setBirthday}
+                keyboardType="numbers-and-punctuation"
+              />
+              <GlassButton
+                label={birthdaySaved ? 'Saved' : 'Save birthday'}
+                onPress={handleSaveBirthday}
+                variant="secondary"
+              />
+            </GlassCard>
           </View>
 
           <View style={styles.accountActions}>
@@ -287,4 +334,6 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   signOutButtonText: { color: colors.textMuted, fontWeight: '600' },
+  birthdayCard: { gap: spacing.sm },
+  birthdayHint: { ...typography.caption, lineHeight: 20 },
 });

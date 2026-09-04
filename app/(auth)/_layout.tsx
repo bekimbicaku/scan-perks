@@ -10,8 +10,10 @@ export default function AuthLayout() {
         contentStyle: { backgroundColor: '#fff' },
       }}
     >
+      <Stack.Screen name="welcome" />
       <Stack.Screen name="login" />
       <Stack.Screen name="register" />
+      <Stack.Screen name="enable-notifications" />
       <Stack.Screen name="forgot-password" />
     </Stack>
   );

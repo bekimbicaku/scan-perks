@@ -26,6 +26,8 @@ module.exports = {
           'We use the camera to scan QR codes at participating businesses and unlock rewards.',
         NSLocationWhenInUseUsageDescription:
           'We use your location to show nearby businesses where you can scan QR codes and earn rewards.',
+        UIBackgroundModes: ['remote-notification'],
+        LSApplicationQueriesSchemes: ['whatsapp'],
       },
     },
     android: {
@@ -36,7 +38,13 @@ module.exports = {
       },
       package: 'com.scanperks.app',
       googleServicesFile: './google-services.json',
-      permissions: ['CAMERA', 'ACCESS_FINE_LOCATION'],
+      permissions: [
+        'CAMERA',
+        'ACCESS_FINE_LOCATION',
+        'POST_NOTIFICATIONS',
+        'RECEIVE_BOOT_COMPLETED',
+        'VIBRATE',
+      ],
     },
     web: {
       bundler: 'metro',
@@ -81,6 +89,14 @@ module.exports = {
         'expo-image-picker',
         {
           photosPermission: 'Allow $(PRODUCT_NAME) to access your photos.',
+        },
+      ],
+      [
+        'expo-notifications',
+        {
+          icon: './assets/images/icon.png',
+          color: '#0284C7',
+          defaultChannel: 'offers',
         },
       ],
     ],

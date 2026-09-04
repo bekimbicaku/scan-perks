@@ -28,15 +28,15 @@ export default function RootLayout() {
     let unsubscribe: (() => void) | undefined;
 
     import('@/lib/notifications')
-      .then(({ configurePushNotifications, registerForPushNotifications }) => {
+      .then(({ configurePushNotifications, syncPushTokenIfGranted }) => {
         configurePushNotifications();
 
         return import('@/lib/firebase').then(({ auth, onAuthStateChanged }) => {
           if (!auth) return;
 
-          unsubscribe = onAuthStateChanged(auth, (user) => {
+          unsubscribe = onAuthStateChanged(auth, (user: { uid?: string } | null) => {
             if (user) {
-              registerForPushNotifications().catch(console.error);
+              syncPushTokenIfGranted().catch(console.error);
             }
           });
         });
@@ -66,6 +66,7 @@ export default function RootLayout() {
             <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.offWhite } }}>
               <Stack.Screen name="index" />
               <Stack.Screen name="(auth)" />
+              <Stack.Screen name="invite/[code]" />
               <Stack.Screen name="(tabs)" />
               <Stack.Screen name="payment-success" />
               <Stack.Screen name="payment-cancelled" />

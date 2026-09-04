@@ -8,7 +8,7 @@ type AuthGateState =
   | { status: 'signedOut' }
   | { status: 'signedIn'; user: User };
 
-const AUTH_TIMEOUT_MS = 2500;
+const AUTH_TIMEOUT_MS = 4000;
 
 /**
  * Resolves Firebase auth for routing. Never stays on loading longer than AUTH_TIMEOUT_MS.

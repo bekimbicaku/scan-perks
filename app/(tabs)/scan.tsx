@@ -84,8 +84,12 @@ export default function ScanScreen() {
           setSurpriseMsg(surprise.label);
         }
 
-        if (result.newRewardEarned) {
+        if (result.birthdayRewardIssued) {
+          setSuccess(`Birthday treat unlocked at ${result.businessName}!`);
+        } else if (result.newRewardEarned) {
           setSuccess(`Congratulations! You earned: ${result.rewardDescription}${badge ? ` · Badge: ${badge}` : ''}`);
+        } else if (result.welcomeStampApplied) {
+          setSuccess(`Welcome stamp at ${result.businessName}! You're already on the board.`);
         } else if (result.happyHourActive) {
           setSuccess(`Happy Hour Boost! ${result.happyHourMultiplier}× credit at ${result.businessName}`);
         } else {

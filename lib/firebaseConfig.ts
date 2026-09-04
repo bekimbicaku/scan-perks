@@ -22,5 +22,5 @@ export function getFirebaseConfigError(): string | null {
     return null;
   }
 
-  return 'Firebase environment variables are missing from this web build. Add EXPO_PUBLIC_FIREBASE_* secrets in GitHub Actions and redeploy.';
+  return 'Firebase is not configured for this web build. In Vercel, add EXPO_PUBLIC_FIREBASE_API_KEY, EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN, EXPO_PUBLIC_FIREBASE_PROJECT_ID, and EXPO_PUBLIC_FIREBASE_APP_ID, then redeploy.';
 }

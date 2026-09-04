@@ -11,14 +11,16 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { signInWithEmailAndPassword, auth } from '@/lib/firebase';
-import { registerForPushNotifications } from '@/lib/notifications';
 import { Mail, Lock, ArrowRight } from 'lucide-react-native';
 import GlassBackground, { GlassCard } from '@/components/ui/GlassBackground';
 import GlassInput from '@/components/ui/GlassInput';
 import GlassButton from '@/components/ui/GlassButton';
 import BrandLogo from '@/components/ui/BrandLogo';
 import AppSplash from '@/components/AppSplash';
+import DownloadAppButton from '@/components/DownloadAppButton';
 import { useAuthGate } from '@/hooks/useAuthGate';
+import { getPostAuthHref } from '@/lib/postAuth';
+import { markWelcomeSeen } from '@/lib/onboarding';
 import { colors, spacing, typography } from '@/theme';
 
 export default function LoginScreen() {
@@ -29,9 +31,8 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (authGate.status === 'signedIn') {
-      router.replace('/home');
-    }
+    if (authGate.status !== 'signedIn') return;
+    getPostAuthHref().then((href) => router.replace(href));
   }, [authGate.status]);
 
   const handleLogin = async () => {
@@ -45,8 +46,8 @@ export default function LoginScreen() {
 
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      registerForPushNotifications().catch(console.error);
-      router.replace('/home');
+      await markWelcomeSeen();
+      router.replace(await getPostAuthHref());
     } catch {
       setError('Invalid email or password');
     } finally {
@@ -126,6 +127,9 @@ export default function LoginScreen() {
                 <Text style={styles.linkText}>Don't have an account? Create one</Text>
               </TouchableOpacity>
             </GlassCard>
+            <View style={styles.downloadWrap}>
+              <DownloadAppButton />
+            </View>
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -152,4 +156,5 @@ const styles = StyleSheet.create({
   button: { marginTop: spacing.sm },
   linkHit: { minHeight: 44, justifyContent: 'center', marginTop: spacing.xs },
   linkText: { color: colors.primaryDark, fontSize: 14, textAlign: 'center', fontWeight: '600' },
+  downloadWrap: { marginTop: spacing.lg },
 });

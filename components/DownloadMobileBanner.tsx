@@ -1,99 +1,80 @@
 import { useEffect, useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Platform,
-  Linking,
-} from 'react-native';
-import { Smartphone, Download, ChevronUp } from 'lucide-react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Linking } from 'react-native';
+import { Smartphone, Download, X } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, radius, spacing } from '@/theme';
-import { getPreferredStoreUrl, isMobileWebUserAgent } from '@/lib/appUpdates';
+import { getPreferredStoreUrl, getStoreLabel, shouldOfferNativeAppDownload } from '@/lib/appUpdates';
+import { hasDismissedDownloadBanner, markDownloadBannerDismissed } from '@/lib/onboarding';
 
 export default function DownloadMobileBanner() {
   const insets = useSafeAreaInsets();
+  const [visible, setVisible] = useState(false);
   const [expanded, setExpanded] = useState(true);
-  const [canInstallPwa, setCanInstallPwa] = useState(false);
-  const [installPrompt, setInstallPrompt] = useState<any>(null);
-
-  const isMobileWeb = Platform.OS === 'web' && isMobileWebUserAgent();
 
   useEffect(() => {
-    if (Platform.OS !== 'web' || typeof window === 'undefined') {
+    if (!shouldOfferNativeAppDownload()) {
       return;
     }
 
-    const handleBeforeInstallPrompt = (event: Event) => {
-      event.preventDefault();
-      setInstallPrompt(event);
-      setCanInstallPwa(true);
-    };
+    let cancelled = false;
+    hasDismissedDownloadBanner().then((dismissed) => {
+      if (!cancelled && !dismissed) {
+        setVisible(true);
+      }
+    });
 
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt as EventListener);
     return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt as EventListener);
+      cancelled = true;
     };
   }, []);
 
-  if (!isMobileWeb) {
+  if (!visible) {
     return null;
   }
 
   const openStore = async () => {
-    const url = getPreferredStoreUrl();
-    await Linking.openURL(url);
+    await Linking.openURL(getPreferredStoreUrl());
   };
 
-  const installPwa = async () => {
-    if (!installPrompt?.prompt) {
-      return;
-    }
-
-    await installPrompt.prompt();
-    setInstallPrompt(null);
-    setCanInstallPwa(false);
+  const dismiss = async () => {
+    setVisible(false);
+    await markDownloadBannerDismissed();
   };
+
+  const storeLabel = getStoreLabel();
 
   return (
     <View pointerEvents="box-none" style={[styles.wrapper, { bottom: insets.bottom + 72 }]}>
       {expanded ? (
         <View style={styles.banner}>
+          <TouchableOpacity style={styles.closeBtn} onPress={dismiss} accessibilityLabel="Dismiss download banner">
+            <X size={16} color={colors.textMuted} />
+          </TouchableOpacity>
           <View style={styles.headerRow}>
             <View style={styles.iconWrap}>
               <Smartphone size={18} color={colors.primaryDark} />
             </View>
             <View style={styles.copy}>
-              <Text style={styles.title}>Get Scan Perks on your phone</Text>
+              <Text style={styles.title}>Get the Scan Perks app</Text>
               <Text style={styles.subtitle}>
-                Faster scanning, push rewards, and a smoother loyalty experience in the native app.
+                Faster scanning, push rewards, and a smoother loyalty experience on {storeLabel}.
               </Text>
             </View>
           </View>
 
-          <View style={styles.actions}>
-            <TouchableOpacity style={styles.primaryButton} onPress={openStore}>
-              <Download size={16} color="#fff" />
-              <Text style={styles.primaryButtonText}>Download app</Text>
-            </TouchableOpacity>
-
-            {canInstallPwa && (
-              <TouchableOpacity style={styles.secondaryButton} onPress={installPwa}>
-                <Text style={styles.secondaryButtonText}>Install web app</Text>
-              </TouchableOpacity>
-            )}
-          </View>
+          <TouchableOpacity style={styles.primaryButton} onPress={openStore}>
+            <Download size={16} color="#fff" />
+            <Text style={styles.primaryButtonText}>Download the app</Text>
+          </TouchableOpacity>
 
           <TouchableOpacity style={styles.minimizeButton} onPress={() => setExpanded(false)}>
-            <ChevronUp size={16} color={colors.textMuted} />
-            <Text style={styles.minimizeText}>Minimize</Text>
+            <Text style={styles.minimizeText}>Not now</Text>
           </TouchableOpacity>
         </View>
       ) : (
         <TouchableOpacity style={styles.collapsedPill} onPress={() => setExpanded(true)}>
           <Smartphone size={16} color="#fff" />
-          <Text style={styles.collapsedText}>Download mobile app</Text>
+          <Text style={styles.collapsedText}>Download app</Text>
         </TouchableOpacity>
       )}
     </View>
@@ -119,10 +100,18 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 8 },
     elevation: 8,
   },
+  closeBtn: {
+    position: 'absolute',
+    top: spacing.sm,
+    right: spacing.sm,
+    zIndex: 2,
+    padding: spacing.xs,
+  },
   headerRow: {
     flexDirection: 'row',
     gap: spacing.sm,
     marginBottom: spacing.md,
+    paddingRight: spacing.lg,
   },
   iconWrap: {
     width: 36,
@@ -146,12 +135,7 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     lineHeight: 18,
   },
-  actions: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
   primaryButton: {
-    flex: 1,
     backgroundColor: colors.primaryDark,
     borderRadius: radius.lg,
     paddingVertical: spacing.sm,
@@ -166,28 +150,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 14,
   },
-  secondaryButton: {
-    flex: 1,
-    borderRadius: radius.lg,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.offWhite,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  secondaryButtonText: {
-    color: colors.primaryDark,
-    fontWeight: '700',
-    fontSize: 14,
-  },
   minimizeButton: {
     marginTop: spacing.sm,
     alignSelf: 'center',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
     paddingVertical: 4,
   },
   minimizeText: {

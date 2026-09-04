@@ -16,6 +16,7 @@ import { checkBusinessScanLimit, validateDynamicQR } from './planLimits';
 import { parseQRData } from './qr';
 import { updateScanStreak, applyReferralBonusScan } from './engagement';
 import { HappyHourConfig, DEFAULT_HAPPY_HOUR, isHappyHourActive } from './features';
+import { isBirthdayWindow } from './birthday';
 
 export interface ScanResult {
   totalScans: number;
@@ -30,6 +31,8 @@ export interface ScanResult {
   happyHourActive: boolean;
   happyHourMultiplier: number;
   rewardEtaDays: number | null;
+  welcomeStampApplied: boolean;
+  birthdayRewardIssued: boolean;
 }
 
 export async function processBusinessScan(rawData: string): Promise<ScanResult> {
@@ -80,13 +83,16 @@ export async function processBusinessScan(rawData: string): Promise<ScanResult> 
 
   const loyalty = await getLoyaltySettings(businessId);
   const isNewCustomer = !userScansDoc.exists();
+  const userDoc = await getDoc(doc(getDb(), 'users', user.uid));
+  const userData = userDoc.exists() ? userDoc.data() : {};
 
   const happyHourDoc = await getDoc(doc(getDb(), 'businesses', businessId, 'settings', 'happyHour'));
   const happyHour: HappyHourConfig = happyHourDoc.exists()
     ? { ...DEFAULT_HAPPY_HOUR, ...happyHourDoc.data() }
     : DEFAULT_HAPPY_HOUR;
   const happyHourActive = isHappyHourActive(happyHour);
-  const scanIncrement = happyHourActive ? happyHour.multiplier : 1;
+  const welcomeStampApplied = isNewCustomer && loyalty.welcomeStampEnabled;
+  const scanIncrement = (happyHourActive ? happyHour.multiplier : 1) + (welcomeStampApplied ? 1 : 0);
 
   await runTransaction(getDb(), async (transaction) => {
     transaction.set(
@@ -190,6 +196,34 @@ export async function processBusinessScan(rawData: string): Promise<ScanResult> 
     );
   }
 
+  let birthdayRewardIssued = false;
+  if (
+    loyalty.birthdayRewardEnabled &&
+    isBirthdayWindow(userData.birthdayMonth, userData.birthdayDay)
+  ) {
+    const year = new Date().getFullYear();
+    const birthdayRewardRef = doc(
+      getDb(),
+      'users',
+      user.uid,
+      'rewards',
+      `${businessId}_birthday_${year}`
+    );
+    const existingBirthday = await getDoc(birthdayRewardRef);
+    if (!existingBirthday.exists()) {
+      await setDoc(birthdayRewardRef, {
+        businessId,
+        businessName: businessData.name,
+        rewardDescription: loyalty.birthdayReward || 'A birthday treat',
+        type: 'birthday',
+        createdAt: new Date(),
+        redeemed: false,
+        expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+      });
+      birthdayRewardIssued = true;
+    }
+  }
+
   return {
     totalScans,
     scansRequired: loyalty.scansRequired,
@@ -203,6 +237,8 @@ export async function processBusinessScan(rawData: string): Promise<ScanResult> 
     happyHourActive,
     happyHourMultiplier: happyHour.multiplier,
     rewardEtaDays,
+    welcomeStampApplied,
+    birthdayRewardIssued,
   };
 }
 

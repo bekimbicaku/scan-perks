@@ -39,6 +39,9 @@ import GlassButton from '@/components/ui/GlassButton';
 import EmptyState from '@/components/ui/EmptyState';
 import ScanHistory from '@/components/ScanHistory';
 import CustomerEngagementCard from '@/components/CustomerEngagementCard';
+import NotificationPermissionCard from '@/components/NotificationPermissionCard';
+import InviteFriendsCard from '@/components/InviteFriendsCard';
+import BirthdayTreatCard from '@/components/BirthdayTreatCard';
 import FavoriteBusinesses from '@/components/FavoriteBusinesses';
 import LocalPassportCard from '@/components/LocalPassportCard';
 import BrandLogo from '@/components/ui/BrandLogo';
@@ -271,6 +274,18 @@ export default function HomeScreen() {
               <StatCard icon={<Trophy size={22} color={colors.primaryDark} />} label="Total Points" value={totalPoints} />
               <StatCard icon={<Gift size={22} color={colors.success} />} label="Businesses" value={scannedBusinesses.length} accent={colors.success} />
             </View>
+          </View>
+
+          <View style={styles.section}>
+            <NotificationPermissionCard />
+          </View>
+
+          <View style={styles.section}>
+            <BirthdayTreatCard />
+          </View>
+
+          <View style={styles.section}>
+            <InviteFriendsCard />
           </View>
 
           <View style={styles.section}>

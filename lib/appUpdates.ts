@@ -79,6 +79,23 @@ export function isMobileWebUserAgent(): boolean {
   return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
 }
 
+export function isStandaloneWebApp(): boolean {
+  if (Platform.OS !== 'web' || typeof window === 'undefined') {
+    return false;
+  }
+
+  const nav = window.navigator as Navigator & { standalone?: boolean };
+  if (nav.standalone) {
+    return true;
+  }
+
+  return window.matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches;
+}
+
+export function shouldOfferNativeAppDownload(): boolean {
+  return Platform.OS === 'web' && isMobileWebUserAgent() && !isStandaloneWebApp();
+}
+
 export function getPreferredStoreUrl(): string {
   if (Platform.OS === 'web' && typeof navigator !== 'undefined') {
     if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
@@ -86,7 +103,20 @@ export function getPreferredStoreUrl(): string {
     }
   }
 
+  if (Platform.OS === 'ios') {
+    return STORE_LINKS.ios;
+  }
+
   return STORE_LINKS.android;
+}
+
+export function getStoreLabel(): string {
+  if (Platform.OS === 'ios') return 'App Store';
+  if (Platform.OS === 'android') return 'Google Play';
+  if (Platform.OS === 'web' && typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+    return 'App Store';
+  }
+  return 'Google Play';
 }
 
 export function reloadWebApp() {

@@ -1,12 +1,12 @@
 import { Platform, View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Download } from 'lucide-react-native';
 import { colors, radius, spacing } from '@/theme';
-import { isMobileWebUserAgent } from '@/lib/appUpdates';
+import { isMobileWebUserAgent, isStandaloneWebApp } from '@/lib/appUpdates';
 import { useEffect, useState } from 'react';
 
 export default function WebInstallPrompt() {
   const [installPrompt, setInstallPrompt] = useState<any>(null);
-  const isDesktopWeb = Platform.OS === 'web' && !isMobileWebUserAgent();
+  const isDesktopWeb = Platform.OS === 'web' && !isMobileWebUserAgent() && !isStandaloneWebApp();
 
   useEffect(() => {
     if (!isDesktopWeb || typeof window === 'undefined') {

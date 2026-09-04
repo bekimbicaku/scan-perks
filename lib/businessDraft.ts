@@ -14,6 +14,11 @@ export type BusinessDraft = {
   };
   logoUrl?: string | null;
   plan?: 'basic' | 'premium';
+  scansRequired?: number;
+  reward?: string;
+  welcomeStampEnabled?: boolean;
+  birthdayRewardEnabled?: boolean;
+  birthdayReward?: string;
 };
 
 export function saveLocalBusinessDraft(userId: string, data: BusinessDraft): void {

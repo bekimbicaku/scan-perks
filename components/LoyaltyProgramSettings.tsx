@@ -10,6 +10,9 @@ interface LoyaltySettings {
   memberPerkTitle: string;
   memberPerkDescription: string;
   memberDiscountPercent: number;
+  welcomeStampEnabled: boolean;
+  birthdayRewardEnabled: boolean;
+  birthdayReward: string;
   lastModified: Date;
 }
 
@@ -24,6 +27,9 @@ export default function LoyaltyProgramSettings({ businessId }: LoyaltyProgramSet
     memberPerkTitle: '',
     memberPerkDescription: '',
     memberDiscountPercent: 0,
+    welcomeStampEnabled: false,
+    birthdayRewardEnabled: false,
+    birthdayReward: 'A birthday treat',
     lastModified: new Date(),
   });
   const [loading, setLoading] = useState(false);
@@ -46,6 +52,9 @@ export default function LoyaltyProgramSettings({ businessId }: LoyaltyProgramSet
           memberPerkTitle: data.memberPerkTitle || '',
           memberPerkDescription: data.memberPerkDescription || '',
           memberDiscountPercent: Number(data.memberDiscountPercent) || 0,
+          welcomeStampEnabled: data.welcomeStampEnabled === true,
+          birthdayRewardEnabled: data.birthdayRewardEnabled === true,
+          birthdayReward: data.birthdayReward || 'A birthday treat',
           lastModified,
         });
 
@@ -85,6 +94,9 @@ export default function LoyaltyProgramSettings({ businessId }: LoyaltyProgramSet
         memberPerkTitle: settings.memberPerkTitle.trim(),
         memberPerkDescription: settings.memberPerkDescription.trim(),
         memberDiscountPercent: settings.memberDiscountPercent || 0,
+        welcomeStampEnabled: settings.welcomeStampEnabled,
+        birthdayRewardEnabled: settings.birthdayRewardEnabled,
+        birthdayReward: settings.birthdayReward.trim() || 'A birthday treat',
       };
 
       if (!stampLocked) {
@@ -183,6 +195,44 @@ export default function LoyaltyProgramSettings({ businessId }: LoyaltyProgramSet
             editable={canModifyStampSettings()}
           />
         </View>
+
+        <TouchableOpacity
+          style={[styles.toggleRow, settings.welcomeStampEnabled && styles.toggleOn]}
+          onPress={() =>
+            setSettings((prev) => ({ ...prev, welcomeStampEnabled: !prev.welcomeStampEnabled }))
+          }
+        >
+          <Text style={styles.toggleTitle}>Welcome stamp</Text>
+          <Text style={styles.toggleHint}>Give 1 extra stamp on a customer’s first visit.</Text>
+          <Text style={styles.toggleState}>{settings.welcomeStampEnabled ? 'On' : 'Off'}</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.toggleRow, settings.birthdayRewardEnabled && styles.toggleOn]}
+          onPress={() =>
+            setSettings((prev) => ({
+              ...prev,
+              birthdayRewardEnabled: !prev.birthdayRewardEnabled,
+            }))
+          }
+        >
+          <Text style={styles.toggleTitle}>Birthday treat</Text>
+          <Text style={styles.toggleHint}>Issue a reward during their birthday week.</Text>
+          <Text style={styles.toggleState}>{settings.birthdayRewardEnabled ? 'On' : 'Off'}</Text>
+        </TouchableOpacity>
+
+        {settings.birthdayRewardEnabled ? (
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Birthday reward</Text>
+            <TextInput
+              style={styles.input}
+              value={settings.birthdayReward}
+              onChangeText={(text) => setSettings((prev) => ({ ...prev, birthdayReward: text }))}
+              placeholder="e.g., Free pastry"
+              placeholderTextColor="#94a3b8"
+            />
+          </View>
+        ) : null}
 
         <View style={styles.perkHeader}>
           <Percent size={20} color="#0891b2" />
@@ -410,6 +460,30 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#94a3b8',
     fontStyle: 'italic',
+  },
+  toggleRow: {
+    backgroundColor: '#f8fafc',
+    borderRadius: 12,
+    padding: 14,
+    gap: 4,
+  },
+  toggleOn: {
+    backgroundColor: '#ecfeff',
+  },
+  toggleTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  toggleHint: {
+    fontSize: 13,
+    color: '#64748b',
+  },
+  toggleState: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0891b2',
+    marginTop: 4,
   },
 });
 
