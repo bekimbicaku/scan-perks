@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { QrCode, Gift, Globe } from 'lucide-react-native';
@@ -41,46 +41,60 @@ export default function WelcomeScreen() {
 
   return (
     <GlassBackground>
-      <SafeAreaView style={styles.flex}>
-        <View style={styles.content}>
-          <BrandLogo size="lg" />
-          <Text style={styles.kicker}>Loyalty that travels with you</Text>
+      <SafeAreaView style={styles.flex} edges={['top', 'left', 'right', 'bottom']}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.content}>
+            <BrandLogo size="lg" />
+            <Text style={styles.kicker}>Loyalty that travels with you</Text>
 
-          <GlassCard style={styles.card}>
-            <View style={styles.iconWrap}>
-              <Icon size={36} color={colors.primaryDark} />
-            </View>
-            <Text style={styles.title}>{slide.title}</Text>
-            <Text style={styles.body}>{slide.body}</Text>
-            <View style={styles.dots}>
-              {SLIDES.map((_, i) => (
-                <View key={i} style={[styles.dot, i === index && styles.dotActive]} />
-              ))}
-            </View>
-          </GlassCard>
-        </View>
+            <GlassCard style={styles.card}>
+              <View style={styles.iconWrap}>
+                <Icon size={36} color={colors.primaryDark} />
+              </View>
+              <Text style={styles.title}>{slide.title}</Text>
+              <Text style={styles.body}>{slide.body}</Text>
+              <View style={styles.dots}>
+                {SLIDES.map((_, i) => (
+                  <View key={i} style={[styles.dot, i === index && styles.dotActive]} />
+                ))}
+              </View>
+            </GlassCard>
+          </View>
 
-        <View style={styles.actions}>
-          <DownloadAppButton />
-          {last ? (
-            <GlassButton label="Create free account" onPress={() => finish('/register')} />
-          ) : (
-            <GlassButton label="Continue" onPress={() => setIndex((i) => i + 1)} />
-          )}
-          <TouchableOpacity onPress={() => finish('/login')} style={styles.linkHit}>
-            <Text style={styles.linkText}>I already have an account</Text>
-          </TouchableOpacity>
-        </View>
+          <View style={styles.actions}>
+            <DownloadAppButton />
+            {last ? (
+              <GlassButton label="Create free account" onPress={() => finish('/register')} />
+            ) : (
+              <GlassButton label="Continue" onPress={() => setIndex((i) => i + 1)} />
+            )}
+            <TouchableOpacity onPress={() => finish('/login')} style={styles.linkHit}>
+              <Text style={styles.linkText}>I already have an account</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
       </SafeAreaView>
     </GlassBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1, padding: spacing.lg, justifyContent: 'space-between' },
-  content: { alignItems: 'center', gap: spacing.md, paddingTop: spacing.xl },
+  flex: { flex: 1, width: '100%', maxWidth: '100%', overflow: 'hidden' },
+  scrollContent: {
+    flexGrow: 1,
+    padding: spacing.lg,
+    paddingBottom: spacing.xl,
+    justifyContent: 'space-between',
+    width: '100%',
+    maxWidth: '100%',
+  },
+  content: { alignItems: 'center', gap: spacing.md, paddingTop: spacing.md, width: '100%' },
   kicker: { ...typography.caption, textAlign: 'center' },
-  card: { width: '100%', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.xl },
+  card: { width: '100%', maxWidth: '100%', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.xl },
   iconWrap: {
     width: 72,
     height: 72,
@@ -102,7 +116,7 @@ const styles = StyleSheet.create({
     width: 22,
     backgroundColor: colors.primaryDark,
   },
-  actions: { gap: spacing.sm, paddingBottom: spacing.md },
+  actions: { gap: spacing.sm, paddingBottom: spacing.md, width: '100%' },
   linkHit: { minHeight: 44, justifyContent: 'center' },
   linkText: {
     color: colors.primaryDark,

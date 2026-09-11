@@ -59,6 +59,9 @@ export function GlassCard({ children, style, intensity = 40, noPadding }: GlassC
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    width: '100%',
+    maxWidth: '100%',
+    overflow: 'hidden',
   },
   orbTop: {
     position: 'absolute',
@@ -81,6 +84,7 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: radius.lg,
     overflow: 'hidden',
+    maxWidth: '100%',
     borderWidth: 1,
     borderColor: colors.glass.border,
     shadowColor: colors.glass.shadow,
@@ -100,6 +104,7 @@ const styles = StyleSheet.create({
   cardInner: {
     position: 'relative',
     zIndex: 1,
+    maxWidth: '100%',
   },
   cardPadding: {
     padding: spacing.md,

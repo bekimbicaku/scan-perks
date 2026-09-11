@@ -48,6 +48,7 @@ import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { auth, getAuthInstance, getDb, getStorageInstance, deleteBusiness, onAuthStateChanged } from '@/lib/firebase';
 import { router, useLocalSearchParams } from 'expo-router';
+import { useCompactLayout } from '@/hooks/useCompactLayout';
 import {
   clearLocalBusinessDraft,
   loadLocalBusinessDraft,
@@ -146,6 +147,7 @@ export default function BusinessScreen() {
   }>(DEFAULT_BUSINESS_DATA);
   const [error, setError] = useState('');
   const [dashboardTab, setDashboardTab] = useState<'overview' | 'tools' | 'settings'>('overview');
+  const { isCompact } = useCompactLayout();
 
   useEffect(() => {
     setMounted(true);
@@ -679,7 +681,7 @@ export default function BusinessScreen() {
                 returnKeyType="next"
                 style={styles.fieldInput}
               />
-              <View style={styles.addressRow}>
+              <View style={[styles.addressRow, isCompact && styles.addressRowCompact]}>
                 <View style={styles.addressCol}>
                   <Text style={[styles.fieldLabel, styles.fieldLabelSpaced]}>City</Text>
                   <GlassInput
@@ -984,7 +986,7 @@ export default function BusinessScreen() {
         Static QR is the right choice for most cafes, bars, and shops. Put one poster on the counter.
       </Text>
       
-      <View style={styles.qrOptions}>
+      <View style={[styles.qrOptions, isCompact && styles.qrOptionsCompact]}>
         <TouchableOpacity 
           style={[styles.qrOption, qrType === 'static' && styles.qrOptionSelected]}
           onPress={() => setQrType('static')}
@@ -1091,6 +1093,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: 'transparent',
+    width: '100%',
+    maxWidth: '100%',
+    overflow: 'hidden',
   },
   flex: {
     flex: 1,
@@ -1135,6 +1140,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: colors.navy,
     marginBottom: 6,
+    flexShrink: 1,
   },
   formSubtitle: {
     fontSize: 15,
@@ -1235,6 +1241,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.sm,
   },
+  addressRowCompact: {
+    flexDirection: 'column',
+  },
   addressCol: {
     flex: 1.4,
   },
@@ -1307,12 +1316,18 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   qrOptions: {
-    flexDirection: Platform.OS === 'web' ? 'row' : 'column',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 12,
     marginBottom: 8,
   },
+  qrOptionsCompact: {
+    flexDirection: 'column',
+  },
   qrOption: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: 160,
+    minWidth: 0,
     padding: 18,
     borderRadius: radius.md,
     backgroundColor: colors.white,
@@ -1417,6 +1432,8 @@ const styles = StyleSheet.create({
   dashboard: {
     flex: 1,
     backgroundColor: '#fff',
+    width: '100%',
+    maxWidth: '100%',
   },
   businessHeader: {
     padding: 20,
@@ -1463,12 +1480,15 @@ const styles = StyleSheet.create({
   },
   quickActions: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     paddingHorizontal: spacing.md,
     gap: spacing.sm,
     marginBottom: spacing.sm,
   },
   actionCard: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: 96,
+    minWidth: 0,
     alignItems: 'center',
     padding: spacing.md,
     backgroundColor: colors.glass.backgroundStrong,
@@ -1526,7 +1546,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   contentContainer: {
-    paddingBottom: 16,
+    paddingBottom: Platform.OS === 'web' ? 40 : 16,
+    width: '100%',
+    maxWidth: '100%',
   },
   dangerLink: { alignItems: 'center', padding: spacing.lg },
   dangerText: { color: colors.error, fontWeight: '600' },

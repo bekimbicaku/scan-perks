@@ -65,7 +65,7 @@ const styles = StyleSheet.create({
   card: { marginBottom: spacing.sm },
   title: { ...typography.h3, marginBottom: spacing.md },
   row: { flexDirection: 'row', gap: spacing.sm },
-  item: { flex: 1, alignItems: 'center' },
+  item: { flex: 1, minWidth: 0, alignItems: 'center' },
   icon: {
     width: 40,
     height: 40,

@@ -20,7 +20,7 @@ export default function StatCard({ icon, label, value, accent = colors.primaryDa
 }
 
 const styles = StyleSheet.create({
-  card: { flex: 1, alignItems: 'center', paddingVertical: spacing.md },
+  card: { flex: 1, minWidth: 0, alignItems: 'center', paddingVertical: spacing.md },
   iconWrap: {
     width: 40,
     height: 40,

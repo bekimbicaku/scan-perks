@@ -171,10 +171,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
+    width: '100%',
+    maxWidth: '100%',
+    overflow: 'hidden',
   },
   scrollContent: {
     flexGrow: 1,
     padding: 20,
+    width: '100%',
+    maxWidth: '100%',
   },
   backLink: {
     flexDirection: 'row',
@@ -190,7 +195,7 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   title: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: 'bold',
     color: '#0f172a',
     marginBottom: 8,

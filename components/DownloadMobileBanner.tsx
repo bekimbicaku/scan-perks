@@ -87,6 +87,7 @@ const styles = StyleSheet.create({
     left: spacing.md,
     right: spacing.md,
     zIndex: 1000,
+    maxWidth: '100%',
   },
   banner: {
     backgroundColor: colors.white,

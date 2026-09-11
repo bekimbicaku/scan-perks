@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Platform } from 'react-native';
 import BrandLogo from '@/components/ui/BrandLogo';
 import { colors, spacing } from '@/theme';
 
@@ -36,6 +36,10 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     color: colors.textMuted,
     textAlign: 'center',
-    maxWidth: 420,
+    maxWidth: '100%',
+    width: '100%',
+    ...Platform.select({
+      web: { overflowWrap: 'anywhere' as const },
+    }),
   },
 });

@@ -76,9 +76,9 @@ export default function InviteLandingScreen() {
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1, padding: spacing.lg, justifyContent: 'center' },
-  content: { gap: spacing.lg, alignItems: 'center' },
-  card: { width: '100%', alignItems: 'center', gap: spacing.md },
+  flex: { flex: 1, padding: spacing.lg, justifyContent: 'center', width: '100%', maxWidth: '100%' },
+  content: { gap: spacing.lg, alignItems: 'center', width: '100%', maxWidth: '100%' },
+  card: { width: '100%', maxWidth: '100%', alignItems: 'center', gap: spacing.md },
   iconWrap: {
     width: 72,
     height: 72,

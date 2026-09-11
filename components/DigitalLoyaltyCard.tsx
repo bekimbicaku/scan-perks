@@ -143,7 +143,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  flex: { flex: 1 },
+  flex: { flex: 1, minWidth: 0 },
   eyebrow: { ...typography.label, fontSize: 11, color: colors.primaryDark },
   name: { ...typography.h3, fontSize: 17 },
   type: { ...typography.caption, marginTop: 2 },

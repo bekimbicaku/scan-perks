@@ -138,12 +138,14 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1 },
+  flex: { flex: 1, width: '100%', maxWidth: '100%' },
   scrollContent: {
     flexGrow: 1,
     padding: spacing.lg,
     paddingBottom: spacing.xxl,
     justifyContent: 'center',
+    width: '100%',
+    maxWidth: '100%',
   },
   header: { marginBottom: spacing.lg, alignItems: 'center', gap: spacing.sm },
   title: { ...typography.h1, textAlign: 'center' },

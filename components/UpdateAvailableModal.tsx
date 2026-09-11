@@ -82,6 +82,17 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(12, 74, 110, 0.45)',
     justifyContent: 'center',
     padding: spacing.lg,
+    ...Platform.select({
+      web: {
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        width: '100%',
+        height: '100%',
+      },
+    }),
   },
   card: {
     backgroundColor: colors.white,
@@ -89,6 +100,10 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
     borderWidth: 1,
     borderColor: colors.border,
+    width: '100%',
+    maxWidth: 420,
+    alignSelf: 'center',
+    maxHeight: '90%',
   },
   closeButton: {
     position: 'absolute',

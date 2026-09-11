@@ -54,7 +54,7 @@ const styles = StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   stamp: {
     width: '30%',
-    minWidth: 96,
+    minWidth: 84,
     flexGrow: 1,
     alignItems: 'center',
     padding: spacing.sm,

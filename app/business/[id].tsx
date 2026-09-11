@@ -330,17 +330,18 @@ export default function BusinessDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1 },
+  flex: { flex: 1, width: '100%', maxWidth: '100%', overflow: 'hidden' },
   loading: { ...typography.body, textAlign: 'center', marginTop: 40 },
   backBtn: { padding: spacing.md, alignSelf: 'flex-start' },
   hero: {
     height: 200,
     borderRadius: radius.lg,
     marginHorizontal: spacing.md,
+    overflow: 'hidden',
   },
-  content: { padding: spacing.md },
+  content: { padding: spacing.md, width: '100%', maxWidth: '100%' },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  name: { ...typography.h2, flex: 1 },
+  name: { ...typography.h2, flex: 1, minWidth: 0, flexShrink: 1 },
   type: { ...typography.caption, marginTop: 4, marginBottom: spacing.sm },
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.sm },
   address: { ...typography.caption, flex: 1 },

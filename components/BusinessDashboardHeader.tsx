@@ -43,7 +43,7 @@ export default function BusinessDashboardHeader({
             </View>
           )}
           <View style={styles.heroText}>
-            <Text style={styles.name}>{name}</Text>
+            <Text style={styles.name} numberOfLines={1}>{name}</Text>
             <Text style={styles.type}>{type}</Text>
             {plan ? (
               <View style={styles.planBadge}>
@@ -86,8 +86,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  heroText: { flex: 1, marginLeft: spacing.md },
-  name: { ...typography.h2, fontSize: 20 },
+  heroText: { flex: 1, marginLeft: spacing.md, minWidth: 0 },
+  name: { ...typography.h2, fontSize: 20, flexShrink: 1 },
   type: { ...typography.caption },
   planBadge: {
     alignSelf: 'flex-start',

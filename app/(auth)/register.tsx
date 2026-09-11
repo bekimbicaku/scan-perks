@@ -184,7 +184,7 @@ export default function RegisterScreen() {
               />
               <GlassInput
                 icon={<Cake size={20} color={colors.textMuted} />}
-                placeholder="Birthday MM-DD (optional, for treats)"
+                placeholder="Birthday MM-DD (optional)"
                 value={birthday}
                 onChangeText={setBirthday}
                 keyboardType="numbers-and-punctuation"
@@ -232,11 +232,13 @@ export default function RegisterScreen() {
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1 },
+  flex: { flex: 1, width: '100%', maxWidth: '100%' },
   scrollContent: {
     flexGrow: 1,
     padding: spacing.lg,
     paddingBottom: spacing.xxl,
+    width: '100%',
+    maxWidth: '100%',
   },
   header: {
     marginBottom: spacing.lg,

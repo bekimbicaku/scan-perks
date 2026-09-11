@@ -324,5 +324,5 @@ const styles = StyleSheet.create({
   progressText: { color: colors.white, fontSize: 14, textAlign: 'center' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: spacing.lg, gap: spacing.md },
   permissionTitle: { ...typography.h2, textAlign: 'center' },
-  permissionText: { ...typography.caption, textAlign: 'center', maxWidth: 300, marginBottom: spacing.md },
+  permissionText: { ...typography.caption, textAlign: 'center', maxWidth: '100%', paddingHorizontal: spacing.md, marginBottom: spacing.md },
 });

@@ -49,6 +49,7 @@ export default function GlassButton({
         <>
           {icon}
           <Text
+            numberOfLines={2}
             style={[
               styles.label,
               variant === 'primary' && styles.labelPrimary,
@@ -75,6 +76,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     borderRadius: radius.md,
     borderWidth: 1,
+    width: '100%',
+    maxWidth: '100%',
+    minHeight: 48,
   },
   primary: {
     backgroundColor: colors.primary,
@@ -103,6 +107,8 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 16,
     fontWeight: '600',
+    flexShrink: 1,
+    textAlign: 'center',
   },
   labelPrimary: { color: colors.white },
   labelSecondary: { color: colors.primaryDark },

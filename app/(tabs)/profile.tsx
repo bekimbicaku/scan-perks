@@ -165,7 +165,7 @@ export default function ProfileScreen() {
             </View>
             <BrandLogo size="sm" />
             <Text style={styles.title}>{userName}</Text>
-            <Text style={styles.subtitle}>{auth.currentUser?.email}</Text>
+            <Text style={styles.subtitle} numberOfLines={1}>{auth.currentUser?.email}</Text>
           </View>
 
           <View style={styles.statsRow}>
@@ -290,9 +290,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: spacing.sm,
   },
-  title: { ...typography.h2 },
-  subtitle: { ...typography.caption, marginTop: 4 },
-  statsRow: { flexDirection: 'row', paddingHorizontal: spacing.md, gap: spacing.sm },
+  title: { ...typography.h2, textAlign: 'center', flexShrink: 1 },
+  subtitle: { ...typography.caption, marginTop: 4, textAlign: 'center', maxWidth: '100%' },
+  statsRow: { flexDirection: 'row', paddingHorizontal: spacing.md, gap: spacing.sm, width: '100%' },
   statBox: { flex: 1, alignItems: 'center' },
   statNumber: { fontSize: 26, fontWeight: '700', color: colors.primaryDark },
   statLabel: { ...typography.caption, marginTop: 4 },

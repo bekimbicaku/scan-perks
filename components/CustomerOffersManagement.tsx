@@ -365,7 +365,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContentContainer: {
-    paddingBottom: Platform.OS === 'ios' ? 120 : 100,
+    paddingBottom: Platform.OS === 'ios' ? 120 : Platform.OS === 'web' ? 110 : 100,
   },
   header: {
     flexDirection: 'row',
@@ -494,7 +494,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#0891b2',
     padding: 16,
     marginHorizontal: 20,
-    marginBottom: Platform.OS === 'ios' ? 34 : 20,
+    marginBottom: Platform.OS === 'ios' ? 34 : Platform.OS === 'web' ? 24 : 20,
     borderRadius: 12,
     flexDirection: 'row',
     alignItems: 'center',

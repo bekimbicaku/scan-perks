@@ -85,9 +85,11 @@ export default function BusinessGrowthHub({ businessId, businessName }: Business
 const styles = StyleSheet.create({
   wrap: { paddingHorizontal: spacing.md, marginBottom: spacing.md },
   card: { gap: spacing.md },
-  actions: { flexDirection: 'row', gap: spacing.sm },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   action: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: 90,
+    minWidth: 0,
     alignItems: 'center',
     padding: spacing.sm,
     borderRadius: 14,

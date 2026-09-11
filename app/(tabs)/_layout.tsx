@@ -10,7 +10,12 @@ const TAB_CONTENT = 56;
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
-  const bottomPad = Platform.OS === 'android' ? Math.max(insets.bottom, 10) : Math.max(insets.bottom, 4);
+  const isWeb = Platform.OS === 'web';
+  const bottomPad = isWeb
+    ? Math.max(insets.bottom, 12)
+    : Platform.OS === 'android'
+      ? Math.max(insets.bottom, 10)
+      : Math.max(insets.bottom, 4);
   const authGate = useAuthGate();
 
   if (authGate.status === 'loading') {
@@ -39,6 +44,13 @@ export default function TabLayout() {
           height: TAB_CONTENT + bottomPad,
           elevation: 8,
           shadowOpacity: 0.06,
+          width: '100%',
+          maxWidth: '100%',
+          ...(isWeb
+            ? {
+                position: 'relative' as const,
+              }
+            : null),
         },
         tabBarActiveTintColor: colors.primaryDark,
         tabBarInactiveTintColor: colors.textMuted,
@@ -48,8 +60,14 @@ export default function TabLayout() {
           marginTop: 0,
           marginBottom: 2,
         },
+        tabBarItemStyle: {
+          minHeight: 48,
+        },
         tabBarHideOnKeyboard: true,
-        sceneStyle: { backgroundColor: colors.offWhite },
+        sceneStyle: {
+          backgroundColor: colors.offWhite,
+          ...(isWeb ? { overflow: 'hidden' as const, flex: 1 } : null),
+        },
       }}
     >
       <Tabs.Screen

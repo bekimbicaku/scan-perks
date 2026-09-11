@@ -57,13 +57,22 @@ export default function RootLayout() {
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.offWhite }}>
-      <SafeAreaProvider>
+    <GestureHandlerRootView
+      style={{
+        flex: 1,
+        backgroundColor: colors.offWhite,
+        width: '100%',
+        maxWidth: '100%',
+        height: '100%',
+        overflow: 'hidden',
+      }}
+    >
+      <SafeAreaProvider style={{ flex: 1, width: '100%', maxWidth: '100%', overflow: 'hidden' }}>
         <WebErrorBoundary>
           {showStartupSplash ? (
             <AppSplash />
           ) : (
-            <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.offWhite } }}>
+            <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.offWhite, width: '100%', maxWidth: '100%' } }}>
               <Stack.Screen name="index" />
               <Stack.Screen name="(auth)" />
               <Stack.Screen name="invite/[code]" />

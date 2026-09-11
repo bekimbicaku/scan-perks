@@ -34,9 +34,13 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
     minHeight: 52,
+    width: '100%',
+    maxWidth: '100%',
+    overflow: 'hidden',
   },
   input: {
     flex: 1,
+    minWidth: 0,
     fontSize: 16,
     lineHeight: Platform.OS === 'android' ? 22 : undefined,
     color: colors.navy,
