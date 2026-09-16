@@ -1,9 +1,9 @@
 {
   "version": "1.0.1",
-  "buildNumber": 20,
-  "iosBuildNumber": "20",
-  "releasedAt": "2026-07-19T13:47:00.000Z",
-  "releaseNotes": "Review links, member perks, digital loyalty cards, and smoother Stripe checkout.",
+  "buildNumber": 22,
+  "iosBuildNumber": "22",
+  "releasedAt": "2026-09-16T07:14:00.000Z",
+  "releaseNotes": "Android 15 edge-to-edge, large-screen support, and R8 size/performance optimizations.",
   "webUrl": "https://app.scan-perks.com",
   "androidUrl": "https://play.google.com/store/apps/details?id=com.scanperks.app",
   "iosUrl": "https://apps.apple.com/app/id6744923279"

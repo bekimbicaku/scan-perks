@@ -6,10 +6,19 @@ module.exports = {
     slug: 'scan-perks',
     owner: 'bekimb',
     version: '1.0.1',
-    orientation: 'portrait',
+    orientation: 'default',
     icon: './assets/images/icon.png',
     scheme: 'scanperks',
     userInterfaceStyle: 'automatic',
+    androidStatusBar: {
+      barStyle: 'dark-content',
+      backgroundColor: '#00000000',
+    },
+    androidNavigationBar: {
+      barStyle: 'dark-content',
+      backgroundColor: '#00000000',
+      enforceContrast: false,
+    },
     splash: {
       image: './assets/images/icon.png',
       resizeMode: 'contain',
@@ -19,7 +28,7 @@ module.exports = {
     ios: {
       supportsTablet: false,
       bundleIdentifier: 'com.scanperks.app',
-      buildNumber: '20',
+      buildNumber: '22',
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
         NSCameraUsageDescription:
@@ -31,7 +40,10 @@ module.exports = {
       },
     },
     android: {
-      versionCode: 20,
+      versionCode: 22,
+      edgeToEdgeEnabled: true,
+      predictiveBackGestureEnabled: true,
+      softwareKeyboardLayoutMode: 'resize',
       adaptiveIcon: {
         foregroundImage: './assets/images/icon.png',
         backgroundColor: '#ffffff',
@@ -97,6 +109,23 @@ module.exports = {
           icon: './assets/images/icon.png',
           color: '#0284C7',
           defaultChannel: 'offers',
+        },
+      ],
+      [
+        'expo-build-properties',
+        {
+          android: {
+            enableMinifyInReleaseBuilds: true,
+            enableShrinkResourcesInReleaseBuilds: true,
+            extraProguardRules: [
+              '-keep class com.swmansion.reanimated.** { *; }',
+              '-keep class com.swmansion.worklets.** { *; }',
+              '-keep class com.facebook.react.turbomodule.** { *; }',
+              '-keep class com.facebook.hermes.unicode.** { *; }',
+              '-keep class com.facebook.jni.** { *; }',
+              '-keep class expo.modules.** { *; }',
+            ].join('\n'),
+          },
         },
       ],
     ],

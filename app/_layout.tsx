@@ -84,7 +84,7 @@ export default function RootLayout() {
               <Stack.Screen name="+not-found" options={{ title: 'Oops!' }} />
             </Stack>
           )}
-          <StatusBar style={Platform.OS === 'ios' ? 'dark' : 'auto'} />
+          <StatusBar style="dark" />
           <AppUpdateManager />
         </WebErrorBoundary>
       </SafeAreaProvider>
