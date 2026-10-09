@@ -2,7 +2,7 @@ import 'react-native-gesture-handler';
 import { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Platform, View } from 'react-native';
+import { AppState, Platform, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
@@ -44,6 +44,36 @@ export default function RootLayout() {
       .catch(console.error);
 
     return () => unsubscribe?.();
+  }, []);
+
+  useEffect(() => {
+    if (!isFirebaseConfigured()) return;
+
+    let unsubscribe: (() => void) | undefined;
+
+    const touch = () => {
+      import('@/lib/lastSeen')
+        .then(({ touchLastSeen }) => touchLastSeen())
+        .catch(console.error);
+    };
+
+    import('@/lib/firebase')
+      .then(({ auth, onAuthStateChanged }) => {
+        if (!auth) return;
+        unsubscribe = onAuthStateChanged(auth, (user: { uid?: string } | null) => {
+          if (user) touch();
+        });
+      })
+      .catch(console.error);
+
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') touch();
+    });
+
+    return () => {
+      unsubscribe?.();
+      subscription.remove();
+    };
   }, []);
 
   const showStartupSplash = !isReady && Platform.OS !== 'web';

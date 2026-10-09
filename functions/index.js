@@ -548,3 +548,6 @@ exports.verifyCheckoutSession = functions
       }
     });
   });
+
+const reengage = require('./reengage');
+exports.reengageInactiveUsers = reengage.reengageInactiveUsers;

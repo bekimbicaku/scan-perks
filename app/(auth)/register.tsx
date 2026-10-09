@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { createUserWithEmailAndPassword, auth, getDb } from '@/lib/firebase';
 import { generateReferralCode, isValidReferralCode } from '@/lib/referral';
 import { processReferralSignup } from '@/lib/engagement';
@@ -100,6 +100,7 @@ export default function RegisterScreen() {
         notificationsEnabled: false,
         birthdayMonth: birthdayParsed?.month || null,
         birthdayDay: birthdayParsed?.day || null,
+        lastSeenAt: serverTimestamp(),
       });
 
       if (referredBy) {
