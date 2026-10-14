@@ -431,6 +431,11 @@ exports.createCheckoutSession = functions
         const plan = req.body && req.body.plan === 'premium' ? 'premium' : 'basic';
         const productId = STRIPE_PRODUCT_IDS[plan];
         const priceId = await getActivePriceId(productId);
+        const requestedTrial = Number(req.body && req.body.trialDays);
+        const trialDays =
+          Number.isFinite(requestedTrial) && requestedTrial >= 1
+            ? Math.min(14, Math.floor(requestedTrial))
+            : 0;
 
         const successUrl =
           req.body && typeof req.body.successUrl === 'string' && req.body.successUrl.startsWith('http')
@@ -456,6 +461,7 @@ exports.createCheckoutSession = functions
             productId: productId,
           },
           subscription_data: {
+            ...(trialDays >= 1 ? { trial_period_days: trialDays } : {}),
             metadata: {
               firebaseUid: decoded.uid,
               plan: plan,

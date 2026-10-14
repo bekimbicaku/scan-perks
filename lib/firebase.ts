@@ -16,6 +16,7 @@ export {
 
 import {
   collection,
+  connectFirestoreEmulator,
   doc,
   Firestore,
   getDocs,
@@ -39,6 +40,9 @@ export function ensureFirebaseServices(): void {
   const appInstance = getAppInstance();
   db = getFirestore(appInstance);
   storage = getStorage(appInstance);
+  if (process.env.EXPO_PUBLIC_USE_FIREBASE_EMULATOR === '1') {
+    connectFirestoreEmulator(db, '127.0.0.1', 8080);
+  }
 }
 
 export function getDb(): Firestore {

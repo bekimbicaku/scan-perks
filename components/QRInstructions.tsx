@@ -45,7 +45,7 @@ export default function QRInstructions({ type }: QRInstructionsProps) {
             <View style={styles.stepContent}>
               <Text style={styles.stepTitle}>Customer Scanning</Text>
               <Text style={styles.stepDescription}>
-                Customers can scan the QR code with their phones to earn points
+                A phone camera opens the venue page. Stamps are collected in the Scan tab.
               </Text>
             </View>
           </View>

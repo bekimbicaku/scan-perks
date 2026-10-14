@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -27,20 +27,20 @@ import {
   Star,
   ChevronRight,
   Building2,
-  QrCode,
   Trophy,
   Gift,
 } from 'lucide-react-native';
 import * as Location from 'expo-location';
-import { router, useRootNavigationState } from 'expo-router';
+import { router, useFocusEffect, useRootNavigationState } from 'expo-router';
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import GlassBackground, { GlassCard } from '@/components/ui/GlassBackground';
-import GlassButton from '@/components/ui/GlassButton';
 import EmptyState from '@/components/ui/EmptyState';
 import ScanHistory from '@/components/ScanHistory';
 import CustomerEngagementCard from '@/components/CustomerEngagementCard';
 import NotificationPermissionCard from '@/components/NotificationPermissionCard';
 import InviteFriendsCard from '@/components/InviteFriendsCard';
+import EmptyMarketHome from '@/components/EmptyMarketHome';
+import LiveVenueCard from '@/components/LiveVenueCard';
 import BirthdayTreatCard from '@/components/BirthdayTreatCard';
 import FavoriteBusinesses from '@/components/FavoriteBusinesses';
 import LocalPassportCard from '@/components/LocalPassportCard';
@@ -49,6 +49,7 @@ import SectionHeader from '@/components/ui/SectionHeader';
 import StatCard from '@/components/ui/StatCard';
 import { getLoyaltySettings, DEFAULT_SCANS_REQUIRED } from '@/lib/loyalty';
 import { haversineDistanceKm, formatDistance } from '@/lib/geo';
+import { isVenueLive } from '@/lib/trial';
 import { colors, spacing, typography, radius } from '@/theme';
 
 interface Business {
@@ -73,11 +74,21 @@ interface NearbyBusiness {
   distance?: number;
   location?: { latitude: number; longitude: number };
   address?: { street: string; city: string };
+  isActive?: boolean;
+  planStatus?: string;
+  trialEndsAt?: unknown;
+}
+
+interface FeaturedVenue extends NearbyBusiness {
+  reward: string;
+  scansRequired: number;
 }
 
 export default function HomeScreen() {
   const [scannedBusinesses, setScannedBusinesses] = useState<Business[]>([]);
   const [nearbyBusinesses, setNearbyBusinesses] = useState<NearbyBusiness[]>([]);
+  const [featuredVenue, setFeaturedVenue] = useState<FeaturedVenue | null>(null);
+  const [marketReady, setMarketReady] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -192,10 +203,12 @@ export default function HomeScreen() {
       );
 
       const snapshot = await getDocs(businessesQuery);
-      let loaded = snapshot.docs.map((d) => ({
-        ...d.data(),
-        id: d.id,
-      })) as NearbyBusiness[];
+      let loaded = snapshot.docs
+        .map((d) => ({
+          ...(d.data() as Omit<NearbyBusiness, 'id'>),
+          id: d.id,
+        }))
+        .filter((business) => isVenueLive(business));
 
       if (userLocation) {
         loaded = loaded
@@ -213,9 +226,24 @@ export default function HomeScreen() {
           .sort((a, b) => (a.distance ?? 999) - (b.distance ?? 999));
       }
 
-      setNearbyBusinesses(loaded.slice(0, 10));
+      const visible = loaded.slice(0, 10);
+      setNearbyBusinesses(visible);
+      const first = visible[0];
+      if (first) {
+        const loyalty = await getLoyaltySettings(first.id);
+        setFeaturedVenue({
+          ...first,
+          reward: loyalty.reward,
+          scansRequired: loyalty.scansRequired,
+        });
+      } else {
+        setFeaturedVenue(null);
+      }
     } catch (err) {
       console.error('Error loading nearby businesses:', err);
+      setFeaturedVenue(null);
+    } finally {
+      setMarketReady(true);
     }
   };
 
@@ -224,6 +252,15 @@ export default function HomeScreen() {
     await loadNearbyBusinesses();
     setRefreshing(false);
   }, [userLocation]);
+
+  const loadNearbyRef = useRef(loadNearbyBusinesses);
+  loadNearbyRef.current = loadNearbyBusinesses;
+  useFocusEffect(
+    useCallback(() => {
+      if (!isReady || !auth.currentUser) return;
+      void loadNearbyRef.current();
+    }, [isReady])
+  );
 
   const renderProgressCircles = (totalScans: number, scansRequired: number) => {
     const required = scansRequired || DEFAULT_SCANS_REQUIRED;
@@ -248,6 +285,9 @@ export default function HomeScreen() {
     }
     return circles;
   };
+
+  const hasCard = scannedBusinesses.length > 0;
+  const otherNearby = nearbyBusinesses.filter((business) => business.id !== featuredVenue?.id);
 
   if (!isReady || !navigationState?.key) {
     return (
@@ -276,6 +316,18 @@ export default function HomeScreen() {
             </View>
           </View>
 
+          {featuredVenue ? (
+            <View style={styles.section}>
+              <LiveVenueCard
+                name={featuredVenue.name}
+                reward={featuredVenue.reward}
+                scansRequired={featuredVenue.scansRequired}
+                onOpen={() => router.push(`/business/${featuredVenue.id}`)}
+                onScan={() => router.push('/scan')}
+              />
+            </View>
+          ) : null}
+
           <View style={styles.section}>
             <NotificationPermissionCard />
           </View>
@@ -284,18 +336,27 @@ export default function HomeScreen() {
             <BirthdayTreatCard />
           </View>
 
-          <View style={styles.section}>
-            <InviteFriendsCard />
-          </View>
+          {hasCard ? (
+            <View style={styles.section}>
+              <InviteFriendsCard />
+            </View>
+          ) : null}
 
           <View style={styles.section}>
-            <CustomerEngagementCard />
+            <CustomerEngagementCard hasCard={hasCard} />
           </View>
 
           <FavoriteBusinesses />
 
           <LocalPassportCard />
 
+          {!loading && !error && !hasCard && marketReady && !featuredVenue ? (
+            <View style={styles.section}>
+              <EmptyMarketHome />
+            </View>
+          ) : null}
+
+          {loading || error || hasCard ? (
           <View style={styles.section}>
             <SectionHeader title="My Scanned Businesses" icon={<Building2 size={20} color={colors.primary} />} />
 
@@ -303,17 +364,6 @@ export default function HomeScreen() {
               <Text style={styles.loadingText}>Loading your rewards...</Text>
             ) : error ? (
               <Text style={styles.errorText}>{error}</Text>
-            ) : scannedBusinesses.length === 0 ? (
-              <GlassCard>
-                <EmptyState
-                  icon={<QrCode size={36} color={colors.primary} />}
-                  title="Make Your First Scan!"
-                  description="Visit any participating business and scan their QR code to start earning rewards."
-                  action={
-                    <GlassButton label="Scan Now" onPress={() => router.push('/scan')} />
-                  }
-                />
-              </GlassCard>
             ) : (
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.businessList}>
                 {scannedBusinesses.map((business) => {
@@ -366,11 +416,13 @@ export default function HomeScreen() {
               </ScrollView>
             )}
           </View>
+          ) : null}
 
           <View style={styles.section}>
             <ScanHistory />
           </View>
 
+          {otherNearby.length > 0 || (marketReady && hasCard && nearbyBusinesses.length === 0) ? (
           <View style={styles.section}>
             <SectionHeader
               title="Nearby Businesses"
@@ -378,7 +430,7 @@ export default function HomeScreen() {
               icon={<MapPin size={20} color={colors.primary} />}
             />
 
-            {nearbyBusinesses.length === 0 ? (
+            {otherNearby.length === 0 ? (
               <GlassCard>
                 <EmptyState
                   icon={<Building2 size={36} color={colors.textMuted} />}
@@ -388,7 +440,7 @@ export default function HomeScreen() {
               </GlassCard>
             ) : (
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.businessList}>
-                {nearbyBusinesses.map((business) => (
+                {otherNearby.map((business) => (
                   <TouchableOpacity
                     key={business.id}
                     onPress={() => router.push(`/business/${business.id}`)}
@@ -437,6 +489,7 @@ export default function HomeScreen() {
               </ScrollView>
             )}
           </View>
+          ) : null}
       </ScreenContainer>
     </GlassBackground>
   );

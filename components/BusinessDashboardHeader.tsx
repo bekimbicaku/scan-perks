@@ -10,6 +10,7 @@ interface BusinessDashboardHeaderProps {
   name: string;
   type: string;
   plan?: string;
+  planLabel?: string;
   logoUrl?: string;
   activeTab: DashboardTab;
   onTabChange: (tab: DashboardTab) => void;
@@ -26,6 +27,7 @@ export default function BusinessDashboardHeader({
   name,
   type,
   plan,
+  planLabel,
   logoUrl,
   activeTab,
   onTabChange,
@@ -45,9 +47,11 @@ export default function BusinessDashboardHeader({
           <View style={styles.heroText}>
             <Text style={styles.name} numberOfLines={1}>{name}</Text>
             <Text style={styles.type}>{type}</Text>
-            {plan ? (
+            {plan || planLabel ? (
               <View style={styles.planBadge}>
-                <Text style={styles.planText}>{plan === 'premium' ? 'Premium' : 'Basic'} Plan</Text>
+                <Text style={styles.planText}>
+                  {planLabel || (plan === 'premium' ? 'Premium' : 'Basic') + ' Plan'}
+                </Text>
               </View>
             ) : null}
           </View>

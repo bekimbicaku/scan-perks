@@ -5,6 +5,7 @@ import {
   createUserWithEmailAndPassword,
   deleteUser,
   EmailAuthProvider,
+  connectAuthEmulator,
   getAuth,
   onAuthStateChanged,
   reauthenticateWithCredential,
@@ -36,6 +37,9 @@ function getFirebaseApp(): FirebaseApp {
 
 function createAuth(app: FirebaseApp): Auth {
   const webAuth = getAuth(app);
+  if (process.env.EXPO_PUBLIC_USE_FIREBASE_EMULATOR === '1') {
+    connectAuthEmulator(webAuth, 'http://127.0.0.1:9099', { disableWarnings: true });
+  }
   setPersistence(webAuth, browserLocalPersistence).catch(console.error);
   return webAuth;
 }

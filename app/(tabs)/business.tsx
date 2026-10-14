@@ -29,8 +29,8 @@ import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import QRInstructions from '@/components/QRInstructions';
 import BusinessAnalytics from '@/components/BusinessAnalytics';
-import PayPalPaymentModal from '@/components/PayPalPaymentModal';
 import DeleteBusinessModal from '@/components/DeleteBusinessModal';
+import TrialStatusCard from '@/components/TrialStatusCard';
 import ViewQRCodeModal from '@/components/ViewQRCodeModal';
 import ManageSubscriptionModal from '@/components/ManageSubscriptionModal';
 import LoyaltyProgramSettings from '@/components/LoyaltyProgramSettings';
@@ -55,6 +55,9 @@ import {
   saveLocalBusinessDraft,
   type BusinessDraft,
 } from '@/lib/businessDraft';
+import { createVenueWithQr } from '@/lib/createTrialVenue';
+import { openStripeCheckout } from '@/lib/stripeCheckout';
+import { remainingTrialDays, toDate } from '@/lib/trial';
 
 type BusinessType = 'Bar' | 'Pizzeria' | 'Restaurant' | 'Cafe' | 'Other';
 type Step = 'intro' | 'register' | 'loyalty' | 'payment' | 'qr-type' | 'success';
@@ -132,7 +135,6 @@ export default function BusinessScreen() {
     birthdayRewardEnabled: true,
     birthdayReward: 'A birthday treat',
   });
-  const [showPayment, setShowPayment] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
@@ -144,9 +146,13 @@ export default function BusinessScreen() {
     logoUrl?: string;
     paymentId?: string;
     planStatus?: string;
+    trialEndsAt?: Date | null;
+    trialStartedAt?: Date | null;
+    qrUrl?: string;
   }>(DEFAULT_BUSINESS_DATA);
   const [error, setError] = useState('');
   const [dashboardTab, setDashboardTab] = useState<'overview' | 'tools' | 'settings'>('overview');
+  const [subscribing, setSubscribing] = useState(false);
   const { isCompact } = useCompactLayout();
 
   useEffect(() => {
@@ -222,18 +228,21 @@ export default function BusinessScreen() {
         setIsRegistered(true);
         setBusinessData({
           ...DEFAULT_BUSINESS_DATA,
-          ...(businessRaw as BusinessData),
+          ...(businessRaw as unknown as BusinessData),
           plan: (businessRaw?.plan as Plan) || plan,
+          planStatus: typeof businessRaw?.planStatus === 'string' ? businessRaw.planStatus : undefined,
+          trialEndsAt: toDate(businessRaw?.trialEndsAt),
+          trialStartedAt: toDate(businessRaw?.trialStartedAt),
+          qrUrl: typeof businessRaw?.qrUrl === 'string' ? businessRaw.qrUrl : undefined,
+          planStartDate: toDate(businessRaw?.planStartDate) || undefined,
         });
         setSelectedPlan((businessRaw?.plan as Plan) || plan);
-        setShowPayment(false);
         clearLocalBusinessDraft(userId);
         return;
       }
 
       setIsRegistered(false);
       setSelectedPlan(plan);
-      setShowPayment(false);
 
       if (draft?.name) {
         setBusinessData({
@@ -286,7 +295,15 @@ export default function BusinessScreen() {
       }
 
       if (draft?.name) {
-        setStep(userData?.onboardingStep === 'loyalty' ? 'loyalty' : 'payment');
+        if (userData?.onboardingStep === 'register') {
+          setStep('register');
+          return;
+        }
+        if (userData?.onboardingStep === 'loyalty') {
+          setStep('loyalty');
+          return;
+        }
+        setStep('qr-type');
         return;
       }
 
@@ -335,87 +352,43 @@ export default function BusinessScreen() {
     );
   };
 
-  const handlePaymentSuccess = async (paymentId: string) => {
-    try {
-      const userId = auth.currentUser?.uid;
-      if (!userId) {
-        return;
-      }
-
-      setStep('qr-type');
-      setShowPayment(false);
-
-      const next = {
-        ...businessData,
-        paymentId,
-        plan: selectedPlan,
-        planStatus: 'pending',
-      };
-      setBusinessData(next);
-      await saveBusinessDraft(next, 'qr-type');
-    } catch (err: any) {
-      setError(err.message || 'Failed to process payment');
-    }
-  };
-
   const handleQRTypeSelection = async () => {
     try {
       const userId = auth.currentUser?.uid;
       if (!userId) throw new Error('Not authenticated');
 
-      if (!businessData.name || !businessData.email) {
+      const email = businessData.email.trim() || auth.currentUser?.email || '';
+      if (!businessData.name || !email) {
         setError('Business details are missing. Please fill in your business information.');
         setStep('register');
         return;
       }
 
-      await setDoc(
-        doc(getDb(), 'businesses', userId),
-        {
-          name: businessData.name,
-          type: businessData.type,
-          email: businessData.email,
-          phone: businessData.phone,
-          address: businessData.address,
-          logoUrl: businessData.logoUrl || null,
-          qrType,
-          plan: selectedPlan,
-          planStatus: 'active',
-          isActive: true,
-          isPremium: selectedPlan === 'premium',
-          planStartDate: new Date(),
-          ownerId: userId,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        },
-        { merge: true }
-      );
+      const { qrUrl, billing } = await createVenueWithQr({
+        userId,
+        name: businessData.name.trim(),
+        type: businessData.type,
+        email,
+        phone: businessData.phone,
+        address: businessData.address,
+        logoUrl: businessData.logoUrl || null,
+        qrType,
+        loyalty: loyaltyDraft,
+      });
 
-      await setDoc(
-        doc(getDb(), 'users', userId),
-        {
-          businessDraft: null,
-          onboardingStep: 'complete',
-          updatedAt: new Date(),
-        },
-        { merge: true }
-      );
-
-      clearLocalBusinessDraft(userId);
-
-      await setDoc(
-        doc(getDb(), 'businesses', userId, 'settings', 'loyalty'),
-        {
-          scansRequired: loyaltyDraft.scansRequired,
-          reward: loyaltyDraft.reward.trim() || 'A free item',
-          welcomeStampEnabled: loyaltyDraft.welcomeStampEnabled,
-          birthdayRewardEnabled: loyaltyDraft.birthdayRewardEnabled,
-          birthdayReward: loyaltyDraft.birthdayReward.trim() || 'A birthday treat',
-          lastModified: new Date(),
-        },
-        { merge: true }
-      );
-
+      setBusinessData((prev) => ({
+        ...prev,
+        email,
+        name: prev.name.trim(),
+        plan: billing.plan,
+        planStatus: billing.planStatus,
+        qrType,
+        qrUrl,
+        trialStartedAt: billing.trialStartedAt,
+        trialEndsAt: billing.trialEndsAt,
+        planStartDate: new Date(),
+      }));
+      setSelectedPlan(billing.plan);
       setStep('success');
       setError('');
     } catch (err: any) {
@@ -479,21 +452,26 @@ export default function BusinessScreen() {
       setError('');
       const userId = auth.currentUser?.uid;
       if (!userId) throw new Error('Not authenticated');
-      await saveBusinessDraft({ ...businessData, plan: selectedPlan }, 'payment');
-
-      const userSnap = await getDoc(doc(getDb(), 'users', userId));
-      const alreadyPaid =
-        userSnap.exists() &&
-        userSnap.data()?.subscribed === true &&
-        userSnap.data()?.planStatus === 'active';
-
-      if (alreadyPaid) {
-        setStep('qr-type');
-        return;
-      }
-      setStep('payment');
+      await saveBusinessDraft({ ...businessData, plan: 'basic' }, 'qr-type');
+      setStep('qr-type');
     } catch (err: any) {
       setError(err.message || 'Failed to save loyalty setup');
+    }
+  };
+
+  const startStarterCheckout = async () => {
+    setSubscribing(true);
+    setError('');
+    try {
+      const days = remainingTrialDays(businessData.trialEndsAt);
+      await openStripeCheckout({
+        plan: 'basic',
+        trialDays: days > 0 ? days : undefined,
+      });
+    } catch (err: any) {
+      setError(err.message || 'Could not open Starter checkout');
+    } finally {
+      setSubscribing(false);
     }
   };
 
@@ -573,7 +551,7 @@ export default function BusinessScreen() {
         {renderBack('intro')}
         <View style={styles.onboardingHeader}>
           <View style={styles.stepBadgeWrap}>
-            <Text style={styles.stepBadge}>Step 1 of 4</Text>
+            <Text style={styles.stepBadge}>Step 1 of 3</Text>
           </View>
           <Text style={styles.formTitle}>What is your business called?</Text>
           <Text style={styles.formSubtitle}>
@@ -737,7 +715,7 @@ export default function BusinessScreen() {
     <View style={styles.section}>
       {renderBack('register')}
       <View style={styles.stepBadgeWrap}>
-        <Text style={styles.stepBadge}>Step 2 of 4</Text>
+        <Text style={styles.stepBadge}>Step 2 of 3</Text>
       </View>
       <Text style={styles.formTitle}>What do customers earn?</Text>
       <Text style={styles.formSubtitle}>
@@ -815,7 +793,7 @@ export default function BusinessScreen() {
 
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
       <TouchableOpacity style={styles.button} onPress={handleLoyaltyContinue} activeOpacity={0.9}>
-        <Text style={styles.buttonText}>Continue to plans</Text>
+        <Text style={styles.buttonText}>Continue</Text>
         <ChevronRight size={20} color="#fff" />
       </TouchableOpacity>
     </View>
@@ -827,6 +805,7 @@ export default function BusinessScreen() {
         name={businessData.name || 'Your Business'}
         type={businessData.type}
         plan={businessData.plan}
+        planLabel={businessData.planStatus === 'trial' ? 'Starter trial' : undefined}
         logoUrl={businessData.logoUrl}
         activeTab={dashboardTab}
         onTabChange={setDashboardTab}
@@ -849,13 +828,32 @@ export default function BusinessScreen() {
           </View>
           <Text style={styles.actionTitle}>Redeem</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.actionCard} onPress={() => setShowSubscriptionModal(true)}>
+        <TouchableOpacity
+          style={styles.actionCard}
+          onPress={() => {
+            if (businessData.planStatus === 'trial') {
+              void startStarterCheckout();
+              return;
+            }
+            setShowSubscriptionModal(true);
+          }}
+        >
           <View style={[styles.actionIcon, { backgroundColor: `${colors.accent}18` }]}>
             <CreditCard size={22} color={colors.accent} />
           </View>
           <Text style={styles.actionTitle}>Plan</Text>
         </TouchableOpacity>
       </View>
+
+      {businessData.planStatus === 'trial' ? (
+        <TrialStatusCard
+          trialEndsAt={businessData.trialEndsAt || null}
+          loading={subscribing}
+          onSubscribe={() => {
+            void startStarterCheckout();
+          }}
+        />
+      ) : null}
 
       {dashboardTab === 'overview' && (
         <>
@@ -908,82 +906,15 @@ export default function BusinessScreen() {
     </ScrollView>
   );
 
-  const renderPlanSelection = () => (
+  const renderQRTypeSelection = () => (
     <View style={styles.section}>
       {renderBack('loyalty')}
       <View style={styles.stepBadgeWrap}>
-        <Text style={styles.stepBadge}>Step 3 of 4</Text>
-      </View>
-      <Text style={styles.formTitle}>Choose your plan</Text>
-      <Text style={styles.formSubtitle}>Pick what fits your venue. You can change later.</Text>
-      
-      <View style={styles.planGrid}>
-        {(Object.keys(PLANS) as Plan[]).map((plan) => (
-          <TouchableOpacity
-            key={plan}
-            style={[styles.planCard, selectedPlan === plan && styles.planCardSelected]}
-            onPress={() => setSelectedPlan(plan)}
-            activeOpacity={0.9}
-          >
-            <Text style={[styles.planName, selectedPlan === plan && styles.planNameSelected]}>
-              {PLANS[plan].name}
-            </Text>
-            <Text style={[styles.planPrice, selectedPlan === plan && styles.planPriceSelected]}>
-              ${PLANS[plan].price}
-              <Text style={styles.planPriceMonth}>/mo</Text>
-            </Text>
-            <View style={styles.planFeatures}>
-              {PLANS[plan].features.map((feature, index) => (
-                <View key={index} style={styles.planFeature}>
-                  <Check size={16} color={selectedPlan === plan ? colors.primaryDark : colors.textMuted} />
-                  <Text style={[
-                    styles.planFeatureText,
-                    selectedPlan === plan && styles.planFeatureTextSelected
-                  ]}>
-                    {feature}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      <TouchableOpacity 
-        style={styles.button}
-        onPress={async () => {
-          try {
-            await saveBusinessDraft({ ...businessData, plan: selectedPlan }, 'awaiting_payment');
-            setShowPayment(true);
-          } catch (err: any) {
-            setError(err.message || 'Failed to save business draft before payment');
-          }
-        }}
-        activeOpacity={0.9}
-      >
-        <CreditCard size={20} color="#fff" />
-        <Text style={styles.buttonText}>Proceed to Payment</Text>
-      </TouchableOpacity>
-
-      <PayPalPaymentModal
-        visible={showPayment}
-        onClose={() => setShowPayment(false)}
-        onSuccess={handlePaymentSuccess}
-        amount={PLANS[selectedPlan].price}
-        plan={PLANS[selectedPlan].name}
-      />
-    </View>
-  );
-
-  const renderQRTypeSelection = () => (
-    <View style={styles.section}>
-      {renderBack('payment')}
-      <View style={styles.stepBadgeWrap}>
-        <Text style={styles.stepBadge}>Step 4 of 4</Text>
+        <Text style={styles.stepBadge}>Step 3 of 3</Text>
       </View>
       <Text style={styles.formTitle}>How should customers stamp?</Text>
       <Text style={styles.formSubtitle}>
-        Static QR is the right choice for most cafes, bars, and shops. Put one poster on the counter.
+        14 days free. No card today. Starter is ${PLANS.basic.price}/month after the trial. Counter QR is the right poster for most cafes.
       </Text>
       
       <View style={[styles.qrOptions, isCompact && styles.qrOptionsCompact]}>
@@ -1032,7 +963,9 @@ export default function BusinessScreen() {
       </View>
       <Text style={styles.successTitle}>{businessData.name} is live</Text>
       <Text style={styles.successDescription}>
-        Print your QR, put it on the counter, and start stamping. Welcome stamps and birthday treats are already on.
+        {businessData.planStatus === 'trial'
+          ? `Your QR is live for 14 days with no card. Print it and put it on the counter. Starter is $${PLANS.basic.price}/month after the trial.`
+          : 'Print your QR, put it on the counter, and start stamping. Welcome stamps and birthday treats are already on.'}
       </Text>
       <TouchableOpacity
         style={styles.button}
@@ -1079,8 +1012,7 @@ export default function BusinessScreen() {
             keyboardShouldPersistTaps="handled"
           >
             {step === 'loyalty' && renderLoyaltySetup()}
-            {step === 'payment' && renderPlanSelection()}
-            {step === 'qr-type' && renderQRTypeSelection()}
+            {(step === 'qr-type' || step === 'payment') && renderQRTypeSelection()}
             {step === 'success' && renderSuccess()}
           </ScrollView>
         )}

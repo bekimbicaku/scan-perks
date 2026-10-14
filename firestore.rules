@@ -125,6 +125,18 @@ service cloud.firestore {
       }
     }
 
+    match /cafeRequests/{userId} {
+      allow read: if isAuthenticated() && isOwner(userId);
+      allow create, update: if isAuthenticated() &&
+        isOwner(userId) &&
+        request.resource.data.userId == userId &&
+        request.resource.data.cafeName is string &&
+        request.resource.data.cafeName.size() >= 2 &&
+        request.resource.data.cafeName.size() <= 80 &&
+        request.resource.data.city is string;
+      allow delete: if isAuthenticated() && isOwner(userId);
+    }
+
     match /public/{document=**} {
       allow read: if true;
       allow write: if false;

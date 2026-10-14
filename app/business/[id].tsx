@@ -7,6 +7,7 @@ import {
   Image,
   TouchableOpacity,
   Linking,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -40,6 +41,8 @@ import {
   hasMemberPerk,
 } from '@/lib/memberPerks';
 import { colors, spacing, typography, radius } from '@/theme';
+import { getPreferredStoreUrl, getStoreLabel } from '@/lib/appUpdates';
+import { STORE_LINKS } from '@/lib/version';
 import * as Location from 'expo-location';
 
 export default function BusinessDetailScreen() {
@@ -57,6 +60,7 @@ export default function BusinessDetailScreen() {
   const [hasScanned, setHasScanned] = useState(false);
   const [distance, setDistance] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const [missing, setMissing] = useState(false);
 
   useEffect(() => {
     if (id) loadBusiness();
@@ -67,7 +71,7 @@ export default function BusinessDetailScreen() {
     try {
       const businessDoc = await getDoc(doc(getDb(), 'businesses', id));
       if (!businessDoc.exists()) {
-        router.back();
+        setMissing(true);
         return;
       }
 
@@ -89,23 +93,27 @@ export default function BusinessDetailScreen() {
       setHasScanned(scanned);
       setUserScans(scans);
 
-      const offersSnap = await getDocs(
-        query(
-          collection(getDb(), 'businesses', id, 'offers'),
-          where('validUntil', '>', new Date())
-        )
-      );
-      const allOffers = offersSnap.docs.map((d) => ({
-        id: d.id,
-        ...d.data(),
-        membersOnly: d.data().membersOnly !== false,
-        validUntil: d.data().validUntil?.toDate?.(),
-      }));
-      setOffers(
-        allOffers.filter((offer) => !offer.membersOnly || scanned)
-      );
+      if (auth.currentUser) {
+        try {
+          const offersSnap = await getDocs(
+            query(
+              collection(getDb(), 'businesses', id, 'offers'),
+              where('validUntil', '>', new Date())
+            )
+          );
+          const allOffers = offersSnap.docs.map((d) => ({
+            id: d.id,
+            ...d.data(),
+            membersOnly: d.data().membersOnly !== false,
+            validUntil: d.data().validUntil?.toDate?.(),
+          }));
+          setOffers(allOffers.filter((offer) => !offer.membersOnly || scanned));
+        } catch (offerError) {
+          console.warn('Offers unavailable', offerError);
+        }
+      }
 
-      if (data.location?.latitude && data.location?.longitude) {
+      if (auth.currentUser && data.location?.latitude && data.location?.longitude) {
         try {
           const { status } = await Location.requestForegroundPermissionsAsync();
           if (status === 'granted') {
@@ -147,7 +155,7 @@ export default function BusinessDetailScreen() {
     }
   };
 
-  if (loading || !business) {
+  if (loading) {
     return (
       <GlassBackground>
         <SafeAreaView style={styles.flex}>
@@ -156,6 +164,21 @@ export default function BusinessDetailScreen() {
       </GlassBackground>
     );
   }
+
+  if (missing || !business) {
+    return (
+      <GlassBackground>
+        <SafeAreaView style={styles.flex}>
+          <Text style={styles.loading}>This venue is not live yet.</Text>
+        </SafeAreaView>
+      </GlassBackground>
+    );
+  }
+
+  const inApp = Platform.OS !== 'web';
+  const preferredStore = getPreferredStoreUrl();
+  const otherStore = preferredStore === STORE_LINKS.ios ? STORE_LINKS.android : STORE_LINKS.ios;
+  const otherStoreLabel = preferredStore === STORE_LINKS.ios ? 'Google Play' : 'App Store';
 
   const progress = userScans % loyalty.scansRequired;
   const progressPct =
@@ -174,7 +197,13 @@ export default function BusinessDetailScreen() {
     <GlassBackground>
       <SafeAreaView style={styles.flex}>
         <ScrollView showsVerticalScrollIndicator={false}>
-          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={() => {
+              if (router.canGoBack()) router.back();
+              else router.replace('/');
+            }}
+          >
             <ArrowLeft size={24} color={colors.navy} />
           </TouchableOpacity>
 
@@ -202,15 +231,15 @@ export default function BusinessDetailScreen() {
               </View>
               <Text style={styles.type}>{business.type}</Text>
 
-              {business.address && (
+              {business.address?.street || business.address?.city ? (
                 <View style={styles.row}>
                   <MapPin size={16} color={colors.primary} />
                   <Text style={styles.address}>
-                    {business.address.street}, {business.address.city}
+                    {[business.address.street, business.address.city].filter(Boolean).join(', ')}
                     {distance !== null && ` · ${formatDistance(distance)}`}
                   </Text>
                 </View>
-              )}
+              ) : null}
 
               {business.rating && (
                 <View style={styles.row}>
@@ -218,6 +247,13 @@ export default function BusinessDetailScreen() {
                   <Text style={styles.rating}>{business.rating.toFixed(1)}</Text>
                 </View>
               )}
+            </GlassCard>
+
+            <GlassCard style={styles.mt}>
+              <Text style={styles.sectionTitle}>Reward</Text>
+              <Text style={styles.rewardLabel}>
+                {loyalty.scansRequired} stamps · {loyalty.reward}
+              </Text>
             </GlassCard>
 
             {auth.currentUser && hasScanned && (
@@ -308,11 +344,26 @@ export default function BusinessDetailScreen() {
             )}
 
             <View style={styles.actions}>
-              <GlassButton
-                label="Scan QR Code"
-                onPress={() => router.push('/scan')}
-                icon={<QrCode size={20} color={colors.white} />}
-              />
+              {inApp ? (
+                <GlassButton
+                  label="Scan in the app"
+                  onPress={() => router.push('/scan')}
+                  icon={<QrCode size={20} color={colors.white} />}
+                />
+              ) : (
+                <>
+                  <GlassButton
+                    label={`Get the app on ${getStoreLabel()}`}
+                    onPress={() => Linking.openURL(preferredStore)}
+                    icon={<ExternalLink size={20} color={colors.white} />}
+                  />
+                  <GlassButton
+                    label={`Also on ${otherStoreLabel}`}
+                    variant="secondary"
+                    onPress={() => Linking.openURL(otherStore)}
+                  />
+                </>
+              )}
               {business.location && (
                 <GlassButton
                   label="Get Directions"
