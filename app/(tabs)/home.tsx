@@ -342,13 +342,15 @@ export default function HomeScreen() {
             </View>
           ) : null}
 
-          <View style={styles.section}>
-            <CustomerEngagementCard hasCard={hasCard} />
-          </View>
+          {hasCard ? (
+            <View style={styles.section}>
+              <CustomerEngagementCard hasCard />
+            </View>
+          ) : null}
 
           <FavoriteBusinesses />
 
-          <LocalPassportCard />
+          {hasCard ? <LocalPassportCard /> : null}
 
           {!loading && !error && !hasCard && marketReady && !featuredVenue ? (
             <View style={styles.section}>

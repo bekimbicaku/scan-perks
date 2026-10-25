@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { StyleSheet, Text, View, Platform } from 'react-native';
+import { StyleSheet, Text, View, Platform, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import ScreenContainer from '@/components/ui/ScreenContainer';
-import { Camera, QrCode, Shield, Gift } from 'lucide-react-native';
+import { Camera, QrCode, Shield } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { auth } from '@/lib/firebase';
 import { router } from 'expo-router';
@@ -24,17 +24,10 @@ export default function ScanScreen() {
   const [scanProgress, setScanProgress] = useState<{
     totalScans: number;
     scansRequired: number;
-    scansUntilReward: number;
-    newRewardEarned: boolean;
-    progressPercent: number;
-    businessName: string;
-    happyHourActive?: boolean;
-    rewardEtaDays?: number | null;
   } | null>(null);
   const [pulseVisible, setPulseVisible] = useState(false);
   const [pulseBusinessId, setPulseBusinessId] = useState('');
   const [pulseBusinessName, setPulseBusinessName] = useState('');
-  const [surpriseMsg, setSurpriseMsg] = useState<string | null>(null);
   const isMounted = useRef(true);
 
   useEffect(() => {
@@ -69,47 +62,19 @@ export default function ScanScreen() {
         setScanProgress({
           totalScans: result.totalScans,
           scansRequired: result.scansRequired,
-          scansUntilReward: result.scansUntilReward,
-          newRewardEarned: result.newRewardEarned,
-          progressPercent: result.progressPercent,
-          businessName: result.businessName,
-          happyHourActive: result.happyHourActive,
-          rewardEtaDays: result.rewardEtaDays,
         });
 
-        const badge = await updateLocalPassport(result.businessType);
+        await updateLocalPassport(result.businessType);
         const surprise = getSurpriseBonus();
         if (surprise) {
           await applySurpriseBonus(surprise.bonusScans);
-          setSurpriseMsg(surprise.label);
         }
 
-        if (result.birthdayRewardIssued) {
-          setSuccess(`Birthday treat unlocked at ${result.businessName}!`);
-        } else if (result.newRewardEarned) {
-          setSuccess(`Congratulations! You earned: ${result.rewardDescription}${badge ? ` · Badge: ${badge}` : ''}`);
-        } else if (result.welcomeStampApplied) {
-          setSuccess(`Welcome stamp at ${result.businessName}! You're already on the board.`);
-        } else if (result.happyHourActive) {
-          setSuccess(`Happy Hour Boost! ${result.happyHourMultiplier}× credit at ${result.businessName}`);
-        } else {
-          setSuccess(
-            `Scan at ${result.businessName} successful! ${result.scansUntilReward} more until your reward.`
-          );
-        }
+        setSuccess(stampResultLine(result));
 
         setPulseBusinessId(result.businessId);
         setPulseBusinessName(result.businessName);
         setPulseVisible(true);
-
-        setTimeout(() => {
-          if (isMounted.current) {
-            setScanned(false);
-            setSuccess(null);
-            setScanProgress(null);
-            setSurpriseMsg(null);
-          }
-        }, 4500);
       }
     } catch (err: any) {
       if (Platform.OS !== 'web') {
@@ -130,6 +95,12 @@ export default function ScanScreen() {
   const handlePulse = async (mood: PulseMood) => {
     await submitScanPulse(pulseBusinessId, mood);
     setPulseVisible(false);
+  };
+
+  const dismissResult = () => {
+    setScanned(false);
+    setSuccess(null);
+    setScanProgress(null);
   };
 
   if (!permission?.granted) {
@@ -176,46 +147,27 @@ export default function ScanScreen() {
         onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
       />
       <View style={styles.overlay} pointerEvents="box-none">
-        <View style={styles.scanFrameOuter}>
-          <View style={styles.scanFrame}>
-            <QrCode size={32} color={colors.white} />
-          </View>
-        </View>
-        <Text style={styles.scanText}>Scan Business QR Code</Text>
+        {success && scanProgress ? (
+          <StampResultPanel
+            totalScans={scanProgress.totalScans}
+            scansRequired={scanProgress.scansRequired}
+            line={success}
+            onDone={dismissResult}
+          />
+        ) : (
+          <>
+            <View style={styles.scanFrameOuter}>
+              <View style={styles.scanFrame}>
+                <QrCode size={32} color={colors.white} />
+              </View>
+            </View>
+            <Text style={styles.scanText}>Scan Business QR Code</Text>
+          </>
+        )}
 
         {error && (
           <View style={[styles.errorContainer, { bottom: Math.max(insets.bottom, 16) + 88 }]}>
             <Text style={styles.errorText}>{error}</Text>
-          </View>
-        )}
-
-        {success && scanProgress && (
-          <View style={[styles.successContainer, { bottom: Math.max(insets.bottom, 16) + 88 }]}>
-            <Text style={styles.successText}>{success}</Text>
-            {scanProgress.newRewardEarned && (
-              <View style={styles.rewardBadge}>
-                <Gift size={24} color={colors.success} />
-                <Text style={styles.rewardText}>New Reward Available!</Text>
-              </View>
-            )}
-          </View>
-        )}
-
-        {scanProgress && (
-          <View style={[styles.progressContainer, { top: Math.max(insets.top, 12) + 12 }]}>
-            <Text style={styles.progressBusiness}>{scanProgress.businessName}</Text>
-            <View style={styles.progressBar}>
-              <View
-                style={[styles.progressFill, { width: `${scanProgress.progressPercent}%` }]}
-              />
-            </View>
-            <Text style={styles.progressText}>
-              {scanProgress.newRewardEarned
-                ? 'Reward unlocked!'
-                : scanProgress.rewardEtaDays != null
-                  ? `~${scanProgress.rewardEtaDays} days to reward at your pace`
-                  : `${scanProgress.scansUntilReward} scans until next reward`}
-            </Text>
           </View>
         )}
       </View>
@@ -226,6 +178,58 @@ export default function ScanScreen() {
         onSubmit={handlePulse}
         onSkip={() => setPulseVisible(false)}
       />
+    </View>
+  );
+}
+
+function stampResultLine(result: {
+  totalScans: number;
+  scansRequired: number;
+  rewardDescription: string;
+  welcomeStampApplied: boolean;
+  happyHourActive: boolean;
+}) {
+  const required = Math.max(1, result.scansRequired);
+  const inCycle = result.totalScans % required;
+  const current = result.totalScans > 0 && inCycle === 0 ? required : inCycle;
+  const reward = result.rewardDescription.trim() || 'your reward';
+  const notes: string[] = [];
+  if (result.welcomeStampApplied) notes.push('Welcome stamp');
+  if (result.happyHourActive) notes.push('Happy hour');
+  const lead = notes.length > 0 ? `${notes.join('. ')}. ` : '';
+  return `${lead}${current} of ${required} toward ${reward}. Next stamp tomorrow.`;
+}
+
+function StampResultPanel({
+  totalScans,
+  scansRequired,
+  line,
+  onDone,
+}: {
+  totalScans: number;
+  scansRequired: number;
+  line: string;
+  onDone: () => void;
+}) {
+  const required = Math.max(1, scansRequired);
+  const inCycle = totalScans % required;
+  const filled = totalScans > 0 && inCycle === 0 ? required : inCycle;
+  return (
+    <View style={styles.resultCard}>
+      <View style={styles.stamps}>
+        {Array.from({ length: required }).map((_, index) => (
+          <View key={index} style={[styles.stamp, index < filled && styles.stampFilled]} />
+        ))}
+      </View>
+      <Text style={styles.resultLine}>{line}</Text>
+      <TouchableOpacity
+        style={styles.dismiss}
+        onPress={onDone}
+        accessibilityRole="button"
+        accessibilityLabel="Done"
+      >
+        <Text style={styles.dismissText}>Done</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -278,50 +282,46 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(239, 68, 68, 0.2)',
   },
   errorText: { color: colors.error, fontSize: 16, textAlign: 'center' },
-  successContainer: {
-    position: 'absolute',
-    bottom: 100,
-    left: 20,
-    right: 20,
-    backgroundColor: colors.successLight,
-    padding: 16,
-    borderRadius: 16,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.2)',
-  },
-  successText: { color: colors.success, fontSize: 16, textAlign: 'center', fontWeight: '600' },
-  rewardBadge: {
+  stamps: {
     flexDirection: 'row',
-    alignItems: 'center',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  stamp: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 1.5,
+    borderColor: colors.borderStrong,
+    backgroundColor: colors.offWhite,
+  },
+  stampFilled: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primaryDark,
+  },
+  resultCard: {
+    marginHorizontal: 20,
     backgroundColor: colors.white,
-    padding: 12,
-    borderRadius: 20,
-    marginTop: 12,
-    gap: 8,
-  },
-  rewardText: { color: colors.success, fontSize: 16, fontWeight: '600' },
-  progressContainer: {
-    position: 'absolute',
-    top: 60,
-    left: 20,
-    right: 20,
-    backgroundColor: 'rgba(12, 74, 110, 0.8)',
-    padding: 16,
+    padding: 20,
     borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(125, 211, 252, 0.3)',
+    alignItems: 'center',
+    gap: 16,
   },
-  progressBusiness: { color: colors.lightBlue, fontSize: 13, fontWeight: '600', marginBottom: 8 },
-  progressBar: {
-    height: 8,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    borderRadius: 4,
-    overflow: 'hidden',
-    marginBottom: 8,
+  resultLine: {
+    color: colors.navy,
+    fontSize: 16,
+    lineHeight: 22,
+    textAlign: 'center',
+    fontWeight: '600',
   },
-  progressFill: { height: '100%', backgroundColor: colors.primary, borderRadius: 4 },
-  progressText: { color: colors.white, fontSize: 14, textAlign: 'center' },
+  dismiss: {
+    backgroundColor: colors.primary,
+    paddingVertical: 12,
+    paddingHorizontal: 28,
+    borderRadius: 12,
+  },
+  dismissText: { color: colors.white, fontSize: 16, fontWeight: '600' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: spacing.lg, gap: spacing.md },
   permissionTitle: { ...typography.h2, textAlign: 'center' },
   permissionText: { ...typography.caption, textAlign: 'center', maxWidth: '100%', paddingHorizontal: spacing.md, marginBottom: spacing.md },
