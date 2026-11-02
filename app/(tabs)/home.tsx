@@ -49,6 +49,7 @@ import SectionHeader from '@/components/ui/SectionHeader';
 import StatCard from '@/components/ui/StatCard';
 import { getLoyaltySettings, DEFAULT_SCANS_REQUIRED } from '@/lib/loyalty';
 import { haversineDistanceKm, formatDistance } from '@/lib/geo';
+import { claimJoinStamps } from '@/lib/joinStamp';
 import { isVenueLive } from '@/lib/trial';
 import { colors, spacing, typography, radius } from '@/theme';
 
@@ -104,6 +105,11 @@ export default function HomeScreen() {
       if (!auth.currentUser) {
         router.replace('/login');
         return;
+      }
+      try {
+        await claimJoinStamps(auth.currentUser.uid);
+      } catch (err) {
+        console.warn('[join-stamp]', err);
       }
       loadUserData();
     };

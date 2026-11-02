@@ -41,6 +41,7 @@ import BusinessSettings from '@/components/BusinessSettings';
 import BusinessDashboardHeader from '@/components/BusinessDashboardHeader';
 import HappyHourBoost from '@/components/HappyHourBoost';
 import ScanPulseInsights from '@/components/ScanPulseInsights';
+import GoLiveKit from '@/components/GoLiveKit';
 import GlassBackground from '@/components/ui/GlassBackground';
 import GlassInput from '@/components/ui/GlassInput';
 import { colors, spacing, radius } from '@/theme';
@@ -55,6 +56,7 @@ import {
   saveLocalBusinessDraft,
   type BusinessDraft,
 } from '@/lib/businessDraft';
+import { persistOwnerAcquisition } from '@/lib/businessStart';
 import { createVenueWithQr } from '@/lib/createTrialVenue';
 import { openStripeCheckout } from '@/lib/stripeCheckout';
 import { remainingTrialDays, toDate } from '@/lib/trial';
@@ -199,6 +201,7 @@ export default function BusinessScreen() {
     setBootstrapping(true);
     setError('');
     try {
+      const requestedCafe = await persistOwnerAcquisition(userId);
       const [businessDoc, userDoc] = await Promise.all([
         getDoc(doc(getDb(), 'businesses', userId)),
         getDoc(doc(getDb(), 'users', userId)),
@@ -272,9 +275,11 @@ export default function BusinessScreen() {
           birthdayRewardEnabled: draft.birthdayRewardEnabled ?? prev.birthdayRewardEnabled,
           birthdayReward: draft.birthdayReward || prev.birthdayReward,
         }));
-      } else if (auth.currentUser?.email) {
+      } else if (auth.currentUser?.email || requestedCafe) {
         setBusinessData((prev) => ({
           ...prev,
+          name: requestedCafe || prev.name,
+          type: requestedCafe ? 'Cafe' : prev.type,
           email: prev.email || auth.currentUser?.email || '',
           plan,
         }));
@@ -304,6 +309,11 @@ export default function BusinessScreen() {
           return;
         }
         setStep('qr-type');
+        return;
+      }
+
+      if (userData?.accountIntent === 'business' || requestedCafe) {
+        setStep('register');
         return;
       }
 
@@ -857,6 +867,9 @@ export default function BusinessScreen() {
 
       {dashboardTab === 'overview' && (
         <>
+          {auth.currentUser?.uid ? (
+            <GoLiveKit businessId={auth.currentUser.uid} businessName={businessData.name || 'Your venue'} />
+          ) : null}
           <ScanPulseInsights businessId={auth.currentUser?.uid || ''} />
           <BusinessAnalytics businessId={auth.currentUser?.uid || ''} />
           <CustomerSegmentation businessId={auth.currentUser?.uid || ''} />
@@ -967,6 +980,9 @@ export default function BusinessScreen() {
           ? `Your QR is live for 14 days with no card. Print it and put it on the counter. Starter is $${PLANS.basic.price}/month after the trial.`
           : 'Print your QR, put it on the counter, and start stamping. Welcome stamps and birthday treats are already on.'}
       </Text>
+      {auth.currentUser?.uid ? (
+        <GoLiveKit businessId={auth.currentUser.uid} businessName={businessData.name || 'Your venue'} />
+      ) : null}
       <TouchableOpacity
         style={styles.button}
         onPress={() => {

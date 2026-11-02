@@ -55,6 +55,24 @@ service cloud.firestore {
            request.resource.data.redeemed == true)
         );
       }
+
+      match /pendingStamps/{businessId} {
+        allow get: if isAuthenticated() && (isOwner(userId) || request.auth.uid == businessId);
+        allow list: if isAuthenticated() && isOwner(userId);
+        allow create: if isAuthenticated() &&
+                     request.auth.uid == businessId &&
+                     request.resource.data.stamps == 1 &&
+                     request.resource.data.applied == false &&
+                     request.resource.data.businessId == businessId &&
+                     request.resource.data.requesterId == userId &&
+                     request.resource.data.cafeName is string &&
+                     request.resource.data.businessName is string;
+        allow update: if isAuthenticated() &&
+                     isOwner(userId) &&
+                     request.resource.data.diff(resource.data).affectedKeys().hasOnly(['applied', 'appliedAt']) &&
+                     request.resource.data.applied == true;
+        allow delete: if false;
+      }
     }
 
     match /businesses/{businessId} {

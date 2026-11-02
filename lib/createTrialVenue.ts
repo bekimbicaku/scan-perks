@@ -3,6 +3,7 @@ import { getDb } from './firebase';
 import { clearLocalBusinessDraft } from './businessDraft';
 import { getAppWebOrigin } from './referral';
 import { buildPrintedQrValue } from './qrLink';
+import { creditJoinStamp } from './joinStamp';
 import { buildVenueBillingFields, type VenueBillingFields } from './trial';
 
 export type VenueLoyaltyInput = {
@@ -94,6 +95,8 @@ export async function createVenueWithQr(input: {
     },
     { merge: true }
   );
+
+  await creditJoinStamp(input.userId, input.name.trim());
 
   return { qrUrl, billing };
 }

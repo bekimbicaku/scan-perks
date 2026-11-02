@@ -22,6 +22,7 @@ import {
   setPendingReferralCode,
 } from '@/lib/onboarding';
 import { parseBirthdayInput } from '@/lib/birthday';
+import { acquisitionFields, clearOwnerIntent, getOwnerIntent, saveOwnerIntent } from '@/lib/businessStart';
 import { getPostAuthHref } from '@/lib/postAuth';
 import { Mail, User, Lock, ArrowRight, Gift, Cake } from 'lucide-react-native';
 import GlassBackground, { GlassCard } from '@/components/ui/GlassBackground';
@@ -32,7 +33,8 @@ import DownloadAppButton from '@/components/DownloadAppButton';
 import { colors, spacing, typography } from '@/theme';
 
 export default function RegisterScreen() {
-  const { ref } = useLocalSearchParams<{ ref?: string }>();
+  const { ref, business } = useLocalSearchParams<{ ref?: string; business?: string }>();
+  const forBusiness = business === '1';
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -42,6 +44,12 @@ export default function RegisterScreen() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    if (forBusiness) {
+      getOwnerIntent().then((intent) => {
+        if (!intent) saveOwnerIntent({ path: 'business-start' });
+      });
+    }
+
     const fromUrl = typeof ref === 'string' ? ref.trim().toUpperCase() : '';
     if (fromUrl && isValidReferralCode(fromUrl)) {
       setReferralInput(fromUrl);
@@ -50,9 +58,9 @@ export default function RegisterScreen() {
     }
 
     getPendingReferralCode().then((pending) => {
-      if (pending) setReferralInput(pending);
+      if (pending && !forBusiness) setReferralInput(pending);
     });
-  }, [ref]);
+  }, [ref, forBusiness]);
 
   const handleRegister = async () => {
     if (!name.trim() || !email.trim() || !password) {
@@ -83,7 +91,10 @@ export default function RegisterScreen() {
       const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
       const uid = userCredential.user.uid;
       const referralCode = generateReferralCode(uid);
-      const referredBy = referralInput.trim().toUpperCase() || null;
+      const referredBy = forBusiness ? null : referralInput.trim().toUpperCase() || null;
+      const ownerIntent = forBusiness
+        ? (await getOwnerIntent()) || { path: 'business-start' as const }
+        : null;
 
       await setDoc(doc(getDb(), 'users', uid), {
         name: name.trim(),
@@ -101,14 +112,20 @@ export default function RegisterScreen() {
         birthdayMonth: birthdayParsed?.month || null,
         birthdayDay: birthdayParsed?.day || null,
         lastSeenAt: serverTimestamp(),
+        ...(ownerIntent ? acquisitionFields(ownerIntent) : {}),
       });
 
       if (referredBy) {
         await processReferralSignup(uid, referredBy);
       }
 
-      await Promise.all([trackSignUpConversion(), markWelcomeSeen(), clearPendingReferralCode()]);
-      router.replace(await getPostAuthHref());
+      await Promise.all([
+        trackSignUpConversion(),
+        markWelcomeSeen(),
+        clearPendingReferralCode(),
+        ownerIntent ? clearOwnerIntent() : Promise.resolve(),
+      ]);
+      router.replace(ownerIntent ? '/business' : await getPostAuthHref());
     } catch (err: any) {
       const message = String(err?.message || '');
       if (message.includes('email-already-in-use')) {
@@ -139,9 +156,11 @@ export default function RegisterScreen() {
           >
             <View style={styles.header}>
               <BrandLogo size="sm" />
-              <Text style={styles.title}>Create your account</Text>
+              <Text style={styles.title}>{forBusiness ? 'Open your venue' : 'Create your account'}</Text>
               <Text style={styles.subtitle}>
-                One minute to start scanning, collecting stamps, and unlocking rewards.
+                {forBusiness
+                  ? '14 days free. No card. Then you print a counter QR.'
+                  : 'One minute to start scanning, collecting stamps, and unlocking rewards.'}
               </Text>
             </View>
 
@@ -183,30 +202,34 @@ export default function RegisterScreen() {
                 returnKeyType="next"
                 autoComplete="new-password"
               />
-              <GlassInput
-                icon={<Cake size={20} color={colors.textMuted} />}
-                placeholder="Birthday MM-DD (optional)"
-                value={birthday}
-                onChangeText={setBirthday}
-                keyboardType="numbers-and-punctuation"
-                containerStyle={styles.gap}
-                returnKeyType="next"
-              />
-              <GlassInput
-                icon={<Gift size={20} color={colors.textMuted} />}
-                placeholder="Invite code (optional)"
-                value={referralInput}
-                onChangeText={setReferralInput}
-                autoCapitalize="characters"
-                containerStyle={styles.gap}
-                returnKeyType="done"
-                onSubmitEditing={handleRegister}
-              />
+              {forBusiness ? null : (
+                <>
+                  <GlassInput
+                    icon={<Cake size={20} color={colors.textMuted} />}
+                    placeholder="Birthday MM-DD (optional)"
+                    value={birthday}
+                    onChangeText={setBirthday}
+                    keyboardType="numbers-and-punctuation"
+                    containerStyle={styles.gap}
+                    returnKeyType="next"
+                  />
+                  <GlassInput
+                    icon={<Gift size={20} color={colors.textMuted} />}
+                    placeholder="Invite code (optional)"
+                    value={referralInput}
+                    onChangeText={setReferralInput}
+                    autoCapitalize="characters"
+                    containerStyle={styles.gap}
+                    returnKeyType="done"
+                    onSubmitEditing={handleRegister}
+                  />
+                </>
+              )}
 
               {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
               <GlassButton
-                label="Get started"
+                label={forBusiness ? 'Create venue account' : 'Get started'}
                 onPress={handleRegister}
                 loading={loading}
                 icon={<ArrowRight size={20} color={colors.white} />}
@@ -222,9 +245,11 @@ export default function RegisterScreen() {
               </TouchableOpacity>
             </GlassCard>
 
-            <View style={styles.downloadWrap}>
-              <DownloadAppButton />
-            </View>
+            {forBusiness ? null : (
+              <View style={styles.downloadWrap}>
+                <DownloadAppButton />
+              </View>
+            )}
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
