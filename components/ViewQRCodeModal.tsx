@@ -2,6 +2,8 @@ import { Modal, View, Text, StyleSheet, TouchableOpacity, Share, Platform } from
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { X, Download } from 'lucide-react-native';
 import QRCodeGenerator from './QRCodeGenerator';
+import { buildPrintedQrValue } from '@/lib/qrLink';
+import { getAppWebOrigin } from '@/lib/referral';
 
 interface ViewQRCodeModalProps {
   visible: boolean;
@@ -16,17 +18,13 @@ export default function ViewQRCodeModal({
   businessId,
   qrType,
 }: ViewQRCodeModalProps) {
-  const qrData = JSON.stringify({
-    businessId,
-    type: qrType,
-    timestamp: new Date().toISOString(),
-  });
+  const qrData = buildPrintedQrValue(businessId, getAppWebOrigin());
 
   const handleShare = async () => {
     try {
       await Share.share({
-        message: 'Scan this QR code to earn points!',
-        url: qrData, // On iOS, this will be used for sharing
+        message: `Scan this QR code to earn points!\n${qrData}`,
+        url: qrData,
         title: 'Business QR Code',
       });
     } catch (err) {
@@ -49,16 +47,23 @@ export default function ViewQRCodeModal({
             <QRCodeGenerator value={qrData} size={250} />
           </View>
 
+          <Text selectable style={styles.linkText}>{qrData}</Text>
+          {qrType === 'dynamic' ? (
+            <Text style={styles.instructionText}>
+              POS codes stay per receipt. This poster is the counter link.
+            </Text>
+          ) : null}
+
           <View style={styles.instructions}>
             <Text style={styles.instructionsTitle}>How to use your QR code:</Text>
             <Text style={styles.instructionText}>
-              1. Display this QR code prominently at your business location
+              1. Print this code and put it on the counter
             </Text>
             <Text style={styles.instructionText}>
-              2. Customers can scan it using their phone's camera
+              2. A phone camera opens {qrData}
             </Text>
             <Text style={styles.instructionText}>
-              3. Each scan earns them points towards rewards
+              3. Stamps are collected in the Scan tab
             </Text>
           </View>
 
@@ -121,6 +126,12 @@ const styles = StyleSheet.create({
   instructionText: {
     fontSize: 16,
     color: '#64748b',
+    marginBottom: 8,
+  },
+  linkText: {
+    fontSize: 14,
+    color: '#0284c7',
+    textAlign: 'center',
     marginBottom: 8,
   },
   shareButton: {

@@ -40,6 +40,7 @@ export default function ProfileScreen() {
   const [referralCode, setReferralCode] = useState('');
   const [referralCount, setReferralCount] = useState(0);
   const [referralBonusScans, setReferralBonusScans] = useState(0);
+  const [hasCard, setHasCard] = useState(false);
   const [birthday, setBirthday] = useState('');
   const [birthdaySaved, setBirthdaySaved] = useState(false);
   const navigationState = useRootNavigationState();
@@ -72,6 +73,7 @@ export default function ProfileScreen() {
     const userStatsRef = collection(getDb(), 'users', auth.currentUser.uid, 'scans');
     const unsubscribeStats = onSnapshot(userStatsRef, (snapshot) => {
       const points = snapshot.docs.reduce((total, d) => total + (d.data().totalScans || 0), 0);
+      setHasCard(snapshot.docs.length > 0);
       setStats((prev) => ({ ...prev, totalPoints: points }));
     });
 
@@ -177,7 +179,7 @@ export default function ProfileScreen() {
             <NotificationPermissionCard compact />
           </View>
 
-          {referralCode ? (
+          {referralCode && hasCard ? (
             <View style={styles.section}>
               <ReferralHub
                 referralCode={referralCode}

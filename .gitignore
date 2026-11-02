@@ -32,6 +32,7 @@ yarn-debug.*
 yarn-error.*
 firebase-debug.log
 firebase-debug.*.log
+firestore-debug.log
 
 # macos
 .DS_Store

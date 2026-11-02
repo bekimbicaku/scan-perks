@@ -58,6 +58,7 @@ export async function createStripeCheckoutUrl(input: {
   plan?: StripePlanType;
   amount?: number;
   planName?: string;
+  trialDays?: number;
 }): Promise<string> {
   const user = auth.currentUser;
   if (!user) {
@@ -74,6 +75,9 @@ export async function createStripeCheckoutUrl(input: {
     plan,
     userId: user.uid,
     email: user.email,
+    ...(typeof input.trialDays === 'number' && input.trialDays >= 1
+      ? { trialDays: input.trialDays }
+      : {}),
     successUrl:
       Platform.OS === 'web' && typeof window !== 'undefined'
         ? `${window.location.origin}/payment-success`
@@ -117,6 +121,7 @@ export async function openStripeCheckout(input: {
   plan?: StripePlanType;
   amount?: number;
   planName?: string;
+  trialDays?: number;
 }): Promise<void> {
   const url = await createStripeCheckoutUrl(input);
 

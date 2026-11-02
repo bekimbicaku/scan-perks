@@ -42,7 +42,10 @@ export async function processBusinessScan(rawData: string): Promise<ScanResult> 
   let qrData: ReturnType<typeof parseQRData>;
   try {
     qrData = parseQRData(rawData);
-  } catch {
+  } catch (err) {
+    if (!rawData.trim().startsWith('{')) {
+      throw err instanceof Error ? err : new Error('Invalid QR code');
+    }
     const parsed = JSON.parse(rawData);
     if (!parsed.businessId) throw new Error('Invalid QR code format');
     qrData = parsed;

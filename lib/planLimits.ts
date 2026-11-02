@@ -1,10 +1,6 @@
 import { doc, getDoc } from 'firebase/firestore';
 import { getDb } from './firebase';
-
-const PLAN_LIMITS = {
-  basic: 500,
-  premium: Infinity,
-} as const;
+import { scanBlockReason } from './trial';
 
 export async function checkBusinessScanLimit(businessId: string): Promise<{ allowed: boolean; message?: string }> {
   const businessDoc = await getDoc(doc(getDb(), 'businesses', businessId));
@@ -13,34 +9,16 @@ export async function checkBusinessScanLimit(businessId: string): Promise<{ allo
   }
 
   const data = businessDoc.data();
-  if (data.isActive === false || data.planStatus === 'cancelled') {
-    return { allowed: false, message: 'This business is not currently active' };
-  }
-
-  const plan = (data.plan === 'premium' ? 'premium' : 'basic') as keyof typeof PLAN_LIMITS;
-  const limit = PLAN_LIMITS[plan];
-
-  if (limit === Infinity) {
-    return { allowed: true };
-  }
-
   const statsDoc = await getDoc(doc(getDb(), 'businesses', businessId, 'statistics', 'scans'));
   const totalScans = statsDoc.data()?.totalScans || 0;
-
-  const planStart = data.planStartDate?.toDate?.() || data.createdAt?.toDate?.() || new Date();
-  const monthStart = new Date(planStart);
-  monthStart.setDate(1);
-  monthStart.setHours(0, 0, 0, 0);
 
   const analyticsDoc = await getDoc(doc(getDb(), 'businesses', businessId, 'analytics', 'monthly'));
   const monthKey = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
   const monthlyScans = analyticsDoc.data()?.[monthKey]?.scans || totalScans;
 
-  if (monthlyScans >= limit) {
-    return {
-      allowed: false,
-      message: 'This business has reached its monthly scan limit. Please try again later.',
-    };
+  const message = scanBlockReason(data, monthlyScans);
+  if (message) {
+    return { allowed: false, message };
   }
 
   return { allowed: true };

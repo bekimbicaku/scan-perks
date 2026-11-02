@@ -2,6 +2,7 @@ import { Redirect } from 'expo-router';
 import { useEffect, useState } from 'react';
 import AppSplash from '@/components/AppSplash';
 import { useAuthGate } from '@/hooks/useAuthGate';
+import { getOwnerIntent } from '@/lib/businessStart';
 import { getPendingReferralCode, hasSeenWelcome } from '@/lib/onboarding';
 
 type Dest = 'loading' | 'home' | 'welcome' | 'login' | 'register';
@@ -9,6 +10,7 @@ type Dest = 'loading' | 'home' | 'welcome' | 'login' | 'register';
 export default function Index() {
   const authGate = useAuthGate();
   const [dest, setDest] = useState<Dest>('loading');
+  const [businessEntry, setBusinessEntry] = useState(false);
 
   useEffect(() => {
     if (authGate.status === 'loading') {
@@ -23,8 +25,17 @@ export default function Index() {
 
     let cancelled = false;
     (async () => {
-      const [seenWelcome, pendingRef] = await Promise.all([hasSeenWelcome(), getPendingReferralCode()]);
+      const [seenWelcome, pendingRef, ownerIntent] = await Promise.all([
+        hasSeenWelcome(),
+        getPendingReferralCode(),
+        getOwnerIntent(),
+      ]);
       if (cancelled) return;
+      if (ownerIntent) {
+        setBusinessEntry(true);
+        setDest('register');
+        return;
+      }
       if (pendingRef) {
         setDest('register');
         return;
@@ -50,7 +61,7 @@ export default function Index() {
   }
 
   if (dest === 'register') {
-    return <Redirect href="/register" />;
+    return <Redirect href={businessEntry ? '/register?business=1' : '/register'} />;
   }
 
   return <Redirect href="/login" />;

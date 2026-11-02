@@ -1,5 +1,6 @@
 import Stripe from 'stripe';
 import { STRIPE_PRODUCT_IDS, type StripePlanType } from '@/lib/stripeProducts';
+import { clampTrialDays } from '@/lib/trial';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || process.env.EXPO_PUBLIC_STRIPE_SECRET_KEY!, {
   apiVersion: '2025-08-27.basil',
@@ -54,6 +55,7 @@ export async function POST(request: Request) {
 
     const productId = STRIPE_PRODUCT_IDS[plan];
     const priceId = await getActivePriceId(productId);
+    const trialDays = clampTrialDays(body.trialDays);
 
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
@@ -70,6 +72,7 @@ export async function POST(request: Request) {
         productId,
       },
       subscription_data: {
+        ...(trialDays ? { trial_period_days: trialDays } : {}),
         metadata: {
           firebaseUid: userId,
           plan,

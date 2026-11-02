@@ -6,7 +6,7 @@ import { auth, getDb } from '@/lib/firebase';
 import { GlassCard } from '@/components/ui/GlassBackground';
 import { colors, spacing, typography } from '@/theme';
 
-export default function CustomerEngagementCard() {
+export default function CustomerEngagementCard({ hasCard = false }: { hasCard?: boolean }) {
   const [streak, setStreak] = useState(0);
   const [longestStreak, setLongestStreak] = useState(0);
   const [bonusScans, setBonusScans] = useState(0);
@@ -52,11 +52,12 @@ export default function CustomerEngagementCard() {
           <Text style={styles.label}>Bonus perks</Text>
         </View>
       </View>
-      {streak >= 3 ? (
+      {hasCard && streak >= 3 ? (
         <Text style={styles.hint}>🔥 Keep scanning daily to maintain your streak!</Text>
-      ) : (
+      ) : null}
+      {hasCard && streak < 3 ? (
         <Text style={styles.hint}>Scan today to start or extend your streak.</Text>
-      )}
+      ) : null}
     </GlassCard>
   );
 }

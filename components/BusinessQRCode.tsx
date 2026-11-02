@@ -23,8 +23,8 @@ export default function BusinessQRCode({ businessId, type, transactionId }: Busi
   const handleShare = async () => {
     try {
       await Share.share({
-        message: 'Scan this QR code to earn points!',
-        url: qrData, // On iOS, this will be used for sharing
+        message: `Scan this QR code to earn points!\n${qrData}`,
+        url: qrData,
         title: 'Business QR Code',
       });
     } catch (err) {
@@ -52,8 +52,8 @@ export default function BusinessQRCode({ businessId, type, transactionId }: Busi
         </Text>
         <Text style={styles.infoText}>
           {type === 'static'
-            ? 'This QR code can be printed and displayed at your business location.'
-            : 'This unique QR code is valid for this transaction only.'}
+            ? 'This QR is a link a phone camera can open. Print it and put it on the counter.'
+            : 'This link is valid for this transaction only.'}
         </Text>
       </View>
 
