@@ -20,6 +20,7 @@ export default function Root({ children }: PropsWithChildren) {
           name="description"
           content="Scan QR codes, collect loyalty stamps, and unlock rewards at local businesses."
         />
+        <meta name="robots" content="noindex" />
         <link rel="icon" type="image/png" sizes="32x32" href="/icon.png" />
         <link rel="icon" type="image/png" sizes="192x192" href="/icon.png" />
         <link rel="apple-touch-icon" href="/icon.png" />
