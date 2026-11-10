@@ -17,6 +17,7 @@ import { parseQRData } from './qr';
 import { updateScanStreak, applyReferralBonusScan } from './engagement';
 import { HappyHourConfig, DEFAULT_HAPPY_HOUR, isHappyHourActive } from './features';
 import { isBirthdayWindow } from './birthday';
+import { firstScanStampCount } from './scanStamp';
 
 export interface ScanResult {
   totalScans: number;
@@ -95,7 +96,7 @@ export async function processBusinessScan(rawData: string): Promise<ScanResult> 
     : DEFAULT_HAPPY_HOUR;
   const happyHourActive = isHappyHourActive(happyHour);
   const welcomeStampApplied = isNewCustomer && loyalty.welcomeStampEnabled;
-  const scanIncrement = (happyHourActive ? happyHour.multiplier : 1) + (welcomeStampApplied ? 1 : 0);
+  const scanIncrement = firstScanStampCount(happyHourActive, happyHour.multiplier, welcomeStampApplied);
 
   await runTransaction(getDb(), async (transaction) => {
     transaction.set(
