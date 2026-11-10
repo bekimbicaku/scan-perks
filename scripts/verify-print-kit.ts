@@ -75,9 +75,9 @@ assert.equal(qrDownloadName('Blue Harbor'), 'blue-harbor-qr.png');
 assert.equal(qrDownloadName('  '), 'scan-perks-qr.png');
 assert.equal(qrDownloadName('A/B Cafe'), 'ab-cafe-qr.png');
 
-assert.equal(firstScanStampCount(false, 2, true), 2);
+assert.equal(firstScanStampCount(false, 2, true), 1);
 assert.equal(firstScanStampCount(false, 2, false), 1);
-assert.equal(firstScanStampCount(true, 2, true), 3);
+assert.equal(firstScanStampCount(true, 2, true), 1);
 assert.equal(firstScanStampCount(true, 2, false), 2);
 
 const scanSource = readFileSync(path.join(process.cwd(), 'lib/scan.ts'), 'utf8');

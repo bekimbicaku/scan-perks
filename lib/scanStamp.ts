@@ -3,5 +3,6 @@ export function firstScanStampCount(
   happyHourMultiplier: number,
   welcomeStampApplied: boolean
 ) {
-  return (happyHourActive ? happyHourMultiplier : 1) + (welcomeStampApplied ? 1 : 0);
+  if (welcomeStampApplied) return 1;
+  return happyHourActive ? happyHourMultiplier : 1;
 }
