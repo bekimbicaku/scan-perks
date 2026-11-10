@@ -3,11 +3,21 @@ import { View, Text, StyleSheet, TouchableOpacity, Linking, Platform } from 'rea
 import { doc, onSnapshot } from 'firebase/firestore';
 import { Download, Printer, MessageCircle, Link2, Check } from 'lucide-react-native';
 import QRCodeGenerator from '@/components/QRCodeGenerator';
-import { getDb } from '@/lib/firebase';
+import { auth, getDb } from '@/lib/firebase';
 import { getLoyaltySettings } from '@/lib/loyalty';
 import { buildPrintedQrValue } from '@/lib/qrLink';
 import { getAppWebOrigin } from '@/lib/referral';
 import { copyToClipboard } from '@/lib/clipboard';
+import { shareBase64File, sharePosterPdf } from '@/lib/deviceFile';
+import { runOwnerTestScan } from '@/lib/ownerTestScan';
+import {
+  deliverWebPng,
+  popupOpened,
+  posterDownloadName,
+  posterHtmlForQr,
+  qrDownloadName,
+} from '@/lib/printKit';
+import { qrPngDataUrl } from '@/lib/qrPng';
 import {
   STAFF_SENTENCE,
   customerPost,
@@ -27,6 +37,9 @@ export default function GoLiveKit({ businessId, businessName }: Props) {
   const [scans, setScans] = useState(0);
   const [flags, setFlags] = useState({ printed: false, shared: false });
   const [notice, setNotice] = useState('');
+  const [noticeError, setNoticeError] = useState(false);
+  const [cardStamps, setCardStamps] = useState(0);
+  const [testing, setTesting] = useState(false);
 
   const qrUrl = buildPrintedQrValue(businessId, getAppWebOrigin());
   const post = loyalty
@@ -64,45 +77,116 @@ export default function GoLiveKit({ businessId, businessName }: Props) {
     });
   }, [businessId]);
 
+  useEffect(() => {
+    if (!auth.currentUser || auth.currentUser.uid !== businessId) return;
+    return onSnapshot(
+      doc(getDb(), 'users', auth.currentUser.uid, 'scans', businessId),
+      (snap) => {
+        const total = snap.data()?.totalScans;
+        setCardStamps(typeof total === 'number' ? total : 0);
+      },
+      (err) => console.warn('[go-live] card', err)
+    );
+  }, [businessId]);
+
   const mark = async (flag: 'printed' | 'shared') => {
     await markGoLive(businessId, flag);
     setFlags(await loadGoLiveFlags(businessId));
   };
 
+  const tell = (text: string, error = false) => {
+    setNoticeError(error);
+    setNotice(text);
+  };
+
   const printPoster = async () => {
-    if (!loyalty) return;
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      const QRCode = await import('qrcode');
-      const dataUrl = await QRCode.toDataURL(qrUrl, { width: 480, margin: 1 });
-      const popup = window.open('', '_blank');
-      if (popup) {
-        const name = escapeHtml(businessName);
-        const reward = escapeHtml(`${loyalty.scansRequired} stamps, then ${loyalty.reward}`);
-        popup.document.write(
-          `<!doctype html><html><head><title>${name} poster</title><style>body{font-family:sans-serif;text-align:center;padding:32px}h1{font-size:32px;margin:0 0 8px}p{font-size:18px}img{width:280px;height:280px}</style></head><body><h1>${name}</h1><p>${reward}</p><img src="${dataUrl}" alt="QR code"/><p>${escapeHtml(STAFF_SENTENCE)}</p></body></html>`
-        );
+    if (!loyalty) {
+      tell('The poster is still loading.', true);
+      return;
+    }
+    const reward = `${loyalty.scansRequired} stamps, then ${loyalty.reward}`;
+    if (Platform.OS === 'web') {
+      const popup = typeof window !== 'undefined' ? window.open('', '_blank') : null;
+      if (!popupOpened(popup) || !popup) {
+        tell('Allow popups to print the poster.', true);
+        return;
+      }
+      try {
+        popup.document.write(posterHtmlForQr({ name: businessName, reward, staff: STAFF_SENTENCE, qrUrl }));
         popup.document.close();
         popup.focus();
         popup.print();
+      } catch {
+        popup.close();
+        tell('Could not prepare the poster.', true);
+        return;
       }
+      await mark('printed');
+      tell('Poster ready to print.');
+      return;
     }
-    await mark('printed');
-    setNotice('Poster ready to print.');
+    try {
+      const html = posterHtmlForQr({ name: businessName, reward, staff: STAFF_SENTENCE, qrUrl });
+      const shared = await sharePosterPdf(html, posterDownloadName(businessName));
+      if (!shared) {
+        tell('Could not create the poster file.', true);
+        return;
+      }
+      await mark('printed');
+      tell('Poster file ready.');
+    } catch {
+      tell('Could not create the poster file.', true);
+    }
   };
 
   const downloadQr = async () => {
-    const QRCode = await import('qrcode');
-    const dataUrl = await QRCode.toDataURL(qrUrl, { width: 512, margin: 2 });
-    if (Platform.OS === 'web' && typeof document !== 'undefined') {
-      const link = document.createElement('a');
-      link.href = dataUrl;
-      link.download = `${businessName.replace(/\s+/g, '-').toLowerCase() || 'scan-perks'}-qr.png`;
-      link.click();
-    } else {
-      await copyToClipboard(qrUrl);
+    try {
+      const dataUrl = qrPngDataUrl(qrUrl);
+      const filename = qrDownloadName(businessName);
+      if (Platform.OS === 'web') {
+        const saved = await deliverWebPng(dataUrl, filename);
+        if (!saved) {
+          tell('Could not save the QR image.', true);
+          return;
+        }
+        await mark('printed');
+        tell('QR image downloaded.');
+        return;
+      }
+      const shared = await shareBase64File({
+        filename,
+        base64: dataUrl.slice(dataUrl.indexOf(',') + 1),
+        mimeType: 'image/png',
+        uti: 'public.png',
+        dialogTitle: 'Download QR',
+      });
+      if (!shared) {
+        tell('Could not save the QR image.', true);
+        return;
+      }
+      await mark('printed');
+      tell('QR image saved.');
+    } catch {
+      tell('Could not save the QR image.', true);
     }
-    await mark('printed');
-    setNotice('QR image downloaded.');
+  };
+
+  const testScan = async () => {
+    if (testing) return;
+    setTesting(true);
+    try {
+      const result = await runOwnerTestScan(qrUrl);
+      setCardStamps(result.totalScans);
+      tell(
+        result.alreadyOnCard
+          ? 'Test stamp is on your card.'
+          : 'Test stamp landed on your card. First stamp stays to do until a customer scans.'
+      );
+    } catch (err) {
+      tell(err instanceof Error ? err.message : 'Could not test this QR.', true);
+    } finally {
+      setTesting(false);
+    }
   };
 
   const sharePost = async (channel: 'whatsapp' | 'copy') => {
@@ -114,8 +198,12 @@ export default function GoLiveKit({ businessId, businessName }: Props) {
       if (!ok) return;
     }
     await mark('shared');
-    setNotice(channel === 'copy' ? 'Post copied.' : 'Opening WhatsApp.');
+    tell(channel === 'copy' ? 'Post copied.' : 'Opening WhatsApp.');
   };
+
+  const requiredStamps = Math.max(1, loyalty?.scansRequired || 1);
+  const filledStamps =
+    cardStamps > 0 && cardStamps % requiredStamps === 0 ? requiredStamps : cardStamps % requiredStamps;
 
   const rows = [
     { done: flags.printed, label: 'Print the counter poster' },
@@ -158,8 +246,28 @@ export default function GoLiveKit({ businessId, businessName }: Props) {
           <Link2 size={16} color={colors.primaryDark} />
           <Text style={styles.secondaryText}>Copy post</Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.testButton, testing && styles.testButtonDisabled]}
+          onPress={testScan}
+          disabled={testing}
+          accessibilityLabel="Test scan"
+        >
+          <Text style={styles.secondaryText}>{testing ? 'Stamping...' : 'Test scan'}</Text>
+        </TouchableOpacity>
       </View>
-      {notice ? <Text style={styles.notice}>{notice}</Text> : null}
+      {loyalty && cardStamps > 0 ? (
+        <View style={styles.testResult}>
+          <View style={styles.stamps}>
+            {Array.from({ length: requiredStamps }).map((_, index) => (
+              <View key={index} style={[styles.stamp, index < filledStamps && styles.stampFilled]} />
+            ))}
+          </View>
+          <Text style={styles.testLine}>
+            {filledStamps} of {requiredStamps} toward {loyalty.reward}
+          </Text>
+        </View>
+      ) : null}
+      {notice ? <Text style={[styles.notice, noticeError && styles.noticeError]}>{notice}</Text> : null}
       {post ? (
         <Text selectable style={styles.post}>
           {post}
@@ -177,14 +285,6 @@ export default function GoLiveKit({ businessId, businessName }: Props) {
       ))}
     </View>
   );
-}
-
-function escapeHtml(value: string) {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
 }
 
 const styles = StyleSheet.create({
@@ -240,6 +340,28 @@ const styles = StyleSheet.create({
   },
   secondaryText: { color: colors.primaryDark, fontWeight: '700', fontSize: 14 },
   notice: { color: colors.success, fontSize: 13 },
+  noticeError: { color: colors.error },
+  testButton: {
+    alignItems: 'center',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  testButtonDisabled: { opacity: 0.6 },
+  testResult: { alignItems: 'center', gap: spacing.xs },
+  stamps: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 6 },
+  stamp: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    borderColor: colors.borderStrong,
+    backgroundColor: colors.offWhite,
+  },
+  stampFilled: { backgroundColor: colors.primary, borderColor: colors.primaryDark },
+  testLine: { fontSize: 14, color: colors.navy, textAlign: 'center' },
   post: { fontSize: 13, lineHeight: 18, color: colors.textSecondary },
   checklistTitle: { fontSize: 16, fontWeight: '800', color: colors.navy, marginTop: spacing.xs },
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
