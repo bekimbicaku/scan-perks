@@ -90,7 +90,7 @@ export default function EmptyMarketHome() {
   };
 
   return (
-    <GlassCard>
+    <GlassCard stamp>
       <View style={styles.wrap}>
         <View style={styles.icon}>
           <Coffee size={28} color={colors.primaryDark} />
@@ -99,6 +99,7 @@ export default function EmptyMarketHome() {
         <Text style={styles.note}>Stamp cards show up here after a cafe puts a QR on the counter.</Text>
         <Text style={styles.label}>Your usual cafe</Text>
         <GlassInput
+          stamp
           value={cafeName}
           onChangeText={(text) => {
             setCafeName(text);
@@ -146,6 +147,7 @@ export default function EmptyMarketHome() {
           </View>
         ) : (
           <GlassButton
+            appearance="stamp"
             label={saving ? 'Saving...' : 'Send'}
             onPress={handleSubmit}
             disabled={saving}

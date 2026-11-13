@@ -56,6 +56,7 @@ export default function CustomerOffersManagement({ businessId }: CustomerOffersM
   };
 
   const loadOffers = async () => {
+    if (!businessId) return;
     try {
       const offersRef = collection(getDb(), 'businesses', businessId, 'offers');
       
@@ -278,7 +279,8 @@ export default function CustomerOffersManagement({ businessId }: CustomerOffersM
               <Switch
                 value={newOffer.membersOnly}
                 onValueChange={(value) => setNewOffer((prev) => ({ ...prev, membersOnly: value }))}
-                trackColor={{ true: '#0891b2' }}
+                trackColor={{ true: '#0A3D62', false: '#6F8CA0' }}
+                thumbColor="#FFFFFF"
               />
             </View>
 
@@ -347,7 +349,7 @@ export default function CustomerOffersManagement({ businessId }: CustomerOffersM
         onPress={handleSendOffer}
         disabled={!canSendNewOffer() || loading}
       >
-        <Send size={20} color="#fff" />
+        <Send size={20} color="#062A44" />
         <Text style={styles.sendButtonText}>
           {loading ? 'Sending...' : 'Send Offer'}
         </Text>
@@ -359,7 +361,7 @@ export default function CustomerOffersManagement({ businessId }: CustomerOffersM
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: 'transparent',
   },
   scrollContent: {
     flex: 1,
@@ -378,7 +380,8 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#0f172a',
+    color: '#0A3D62',
+    fontFamily: 'Outfit_800ExtraBold',
   },
   section: {
     padding: 20,
@@ -491,11 +494,12 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#0891b2',
+    backgroundColor: '#38BDF8',
     padding: 16,
     marginHorizontal: 20,
     marginBottom: Platform.OS === 'ios' ? 34 : Platform.OS === 'web' ? 24 : 20,
-    borderRadius: 12,
+    borderRadius: 18,
+    minHeight: 54,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -514,7 +518,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   sendButtonText: {
-    color: '#fff',
+    color: '#062A44',
     fontSize: 16,
     fontWeight: '600',
   },

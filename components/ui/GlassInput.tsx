@@ -1,22 +1,23 @@
 import React from 'react';
 import { View, TextInput, StyleSheet, TextInputProps, ViewStyle, StyleProp, Platform } from 'react-native';
-import { colors, radius, spacing } from '@/theme';
+import { colors, radius, spacing, stamp, outfit } from '@/theme';
 
 interface GlassInputProps extends TextInputProps {
   icon?: React.ReactNode;
   containerStyle?: StyleProp<ViewStyle>;
+  stamp?: boolean;
 }
 
-export default function GlassInput({ icon, containerStyle, style, ...props }: GlassInputProps) {
+export default function GlassInput({ icon, containerStyle, style, stamp: solid, ...props }: GlassInputProps) {
   return (
-    <View style={[styles.container, containerStyle]}>
+    <View style={[styles.container, solid && styles.stampContainer, containerStyle]}>
       {icon}
       <TextInput
         underlineColorAndroid="transparent"
         keyboardAppearance="light"
         {...props}
-        style={[styles.input, icon ? styles.inputWithIcon : undefined, style]}
-        placeholderTextColor={props.placeholderTextColor || colors.textMuted}
+        style={[styles.input, solid && styles.stampInput, icon ? styles.inputWithIcon : undefined, style]}
+        placeholderTextColor={props.placeholderTextColor || (solid ? stamp.muted : colors.textMuted)}
         selectionColor={colors.primaryDark}
         cursorColor={colors.primaryDark}
       />
@@ -54,5 +55,16 @@ const styles = StyleSheet.create({
   },
   inputWithIcon: {
     marginLeft: spacing.sm,
+  },
+  stampContainer: {
+    borderColor: stamp.input,
+    borderRadius: stamp.radiusInput,
+    borderWidth: 1.5,
+    minHeight: 48,
+    backgroundColor: stamp.white,
+  },
+  stampInput: {
+    color: stamp.ink,
+    fontFamily: outfit.regular,
   },
 });

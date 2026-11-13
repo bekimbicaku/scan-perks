@@ -1,12 +1,10 @@
-import { View, Text, StyleSheet, Dimensions, RefreshControl, ScrollView } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { Users, QrCode, Gift, CreditCard } from 'lucide-react-native';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { getDb } from '@/lib/firebase';
 import AnalyticsChart from '@/components/AnalyticsChart';
-import { colors, spacing, typography } from '@/theme';
-
-const windowWidth = Dimensions.get('window').width;
+import { stamp, outfit } from '@/theme';
 
 interface BusinessAnalyticsProps {
   businessId: string;
@@ -21,8 +19,6 @@ interface BusinessStats {
 }
 
 export default function BusinessAnalytics({ businessId }: BusinessAnalyticsProps) {
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [stats, setStats] = useState<BusinessStats>({
     totalScans: 0,
     uniqueCustomers: 0,
@@ -65,8 +61,6 @@ export default function BusinessAnalytics({ businessId }: BusinessAnalyticsProps
       console.error('Error listening to rewards stats:', error);
     });
 
-    setLoading(false);
-
     // Cleanup subscriptions
     return () => {
       unsubscribeStats();
@@ -74,46 +68,34 @@ export default function BusinessAnalytics({ businessId }: BusinessAnalyticsProps
     };
   }, [businessId]);
 
-  const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    // The real-time listeners will automatically update the data
-    setTimeout(() => setRefreshing(false), 1000);
-  }, []);
-
   return (
-    <ScrollView 
-      style={styles.container}
-      showsVerticalScrollIndicator={false}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-      }
-    >
+    <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Business Analytics</Text>
         <Text style={styles.subtitle}>Track your business performance</Text>
       </View>
 
       <View style={styles.statsGrid}>
-        <View style={[styles.statCard, { backgroundColor: colors.offWhite }]}>
-          <QrCode size={24} color={colors.primaryDark} />
+        <View style={[styles.statCard, { backgroundColor: stamp.white }]}>
+          <QrCode size={24} color={stamp.deep} />
           <Text style={styles.statNumber}>{stats.totalScans}</Text>
           <Text style={styles.statLabel}>Total Scans</Text>
         </View>
 
-        <View style={[styles.statCard, { backgroundColor: colors.lightBlue }]}>
-          <Users size={24} color={colors.navy} />
+        <View style={[styles.statCard, { backgroundColor: stamp.skyTint }]}>
+          <Users size={24} color={stamp.deep} />
           <Text style={styles.statNumber}>{stats.uniqueCustomers}</Text>
           <Text style={styles.statLabel}>Unique Customers</Text>
         </View>
 
-        <View style={[styles.statCard, { backgroundColor: 'rgba(56, 189, 248, 0.15)' }]}>
-          <Gift size={24} color={colors.primaryDark} />
+        <View style={[styles.statCard, { backgroundColor: stamp.mist }]}>
+          <Gift size={24} color={stamp.deep} />
           <Text style={styles.statNumber}>{stats.activeRewards}</Text>
           <Text style={styles.statLabel}>Active Rewards</Text>
         </View>
 
-        <View style={[styles.statCard, { backgroundColor: colors.successLight }]}>
-          <CreditCard size={24} color={colors.success} />
+        <View style={[styles.statCard, { backgroundColor: stamp.mintBg }]}>
+          <CreditCard size={24} color={stamp.mintText} />
           <Text style={styles.statNumber}>{stats.redeemedRewards}</Text>
           <Text style={styles.statLabel}>Redeemed Rewards</Text>
         </View>
@@ -138,82 +120,89 @@ export default function BusinessAnalytics({ businessId }: BusinessAnalyticsProps
       </View>
 
       <AnalyticsChart businessId={businessId} />
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: '#fff',
+    marginHorizontal: 20,
+    marginBottom: 16,
   },
   header: {
-    padding: 20,
+    marginBottom: 12,
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#0f172a',
+    fontFamily: outfit.extra,
+    fontSize: 22,
+    letterSpacing: -0.4,
+    color: stamp.deep,
     marginBottom: 4,
   },
   subtitle: {
-    fontSize: 16,
-    color: '#64748b',
+    fontFamily: outfit.regular,
+    fontSize: 14,
+    color: stamp.muted,
   },
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    padding: 10,
     gap: 10,
   },
   statCard: {
-    width: (windowWidth - 50) / 2,
-    padding: 20,
-    borderRadius: 16,
+    width: '48%',
+    flexGrow: 1,
+    padding: 16,
+    borderRadius: 22,
     alignItems: 'flex-start',
+    borderWidth: 1,
+    borderColor: stamp.line,
+    minHeight: 112,
   },
   statNumber: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#0f172a',
+    fontFamily: outfit.extra,
+    fontSize: 28,
+    color: stamp.deep,
     marginTop: 12,
     marginBottom: 4,
   },
   statLabel: {
+    fontFamily: outfit.regular,
     fontSize: 14,
-    color: '#64748b',
+    color: stamp.muted,
   },
   section: {
-    padding: 20,
+    marginTop: 16,
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#0f172a',
-    marginBottom: 16,
+    fontFamily: outfit.extra,
+    fontSize: 18,
+    color: stamp.deep,
+    marginBottom: 12,
   },
   rewardsOverview: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    backgroundColor: '#fff',
-    borderRadius: 16,
+    backgroundColor: stamp.white,
+    borderRadius: 22,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
-    padding: 20,
+    borderColor: stamp.line,
+    padding: 16,
   },
   rewardMetric: {
     flex: 1,
     alignItems: 'center',
   },
   metricValue: {
+    fontFamily: outfit.extra,
     fontSize: 24,
-    fontWeight: 'bold',
-    color: '#0f172a',
+    color: stamp.deep,
     marginBottom: 4,
   },
   metricLabel: {
+    fontFamily: outfit.regular,
     fontSize: 14,
-    color: '#64748b',
+    color: stamp.muted,
     textAlign: 'center',
   },
 });

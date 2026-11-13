@@ -1,9 +1,10 @@
 import { View, Text, StyleSheet } from 'react-native';
-import { colors } from '@/theme';
+import { colors, outfit, stamp } from '@/theme';
 
 interface BrandLogoProps {
   size?: 'sm' | 'md' | 'lg';
   centered?: boolean;
+  tone?: 'default' | 'light';
 }
 
 const sizes = {
@@ -12,12 +13,13 @@ const sizes = {
   lg: { scan: 32, perks: 32, gap: 8 },
 };
 
-export default function BrandLogo({ size = 'md', centered = true }: BrandLogoProps) {
+export default function BrandLogo({ size = 'md', centered = true, tone = 'default' }: BrandLogoProps) {
   const s = sizes[size];
+  const scanColor = tone === 'light' ? stamp.white : stamp.deep;
 
   return (
     <View style={[styles.row, centered ? styles.centered : styles.left]}>
-      <Text style={[styles.scan, { fontSize: s.scan }]}>Scan</Text>
+      <Text style={[styles.scan, { fontSize: s.scan, color: scanColor }]}>Scan</Text>
       <Text style={[styles.perks, { fontSize: s.perks, marginLeft: s.gap }]}>Perks</Text>
     </View>
   );
@@ -28,13 +30,15 @@ const styles = StyleSheet.create({
   centered: { justifyContent: 'center' },
   left: { justifyContent: 'flex-start' },
   scan: {
+    fontFamily: outfit.extra,
     fontWeight: '800',
     color: colors.navy,
-    letterSpacing: 0.5,
+    letterSpacing: -0.3,
   },
   perks: {
+    fontFamily: outfit.extra,
     fontWeight: '800',
-    color: colors.primary,
-    letterSpacing: 0.5,
+    color: stamp.sky,
+    letterSpacing: -0.3,
   },
 });

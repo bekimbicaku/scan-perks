@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { collection, doc, getDoc, getDocs } from 'firebase/firestore';
 import { CreditCard } from 'lucide-react-native';
+import { router } from 'expo-router';
 import { auth, getDb } from '@/lib/firebase';
 import { getLoyaltySettings } from '@/lib/loyalty';
 import { GlassCard } from '@/components/ui/GlassBackground';
 import EmptyState from '@/components/ui/EmptyState';
 import DigitalLoyaltyCard from '@/components/DigitalLoyaltyCard';
 import { MemberPerkSettings } from '@/lib/memberPerks';
-import { colors, spacing, typography } from '@/theme';
+import { spacing, typography, stamp, outfit } from '@/theme';
 
 interface CardData {
   businessId: string;
@@ -75,7 +76,7 @@ export default function LoyaltyCards() {
 
   if (loading) {
     return (
-      <GlassCard>
+      <GlassCard stamp>
         <Text style={styles.loading}>Loading loyalty cards...</Text>
       </GlassCard>
     );
@@ -83,11 +84,18 @@ export default function LoyaltyCards() {
 
   if (cards.length === 0) {
     return (
-      <GlassCard>
+      <GlassCard stamp>
         <EmptyState
-          icon={<CreditCard size={36} color={colors.primary} />}
+          align="left"
+          iconBg={stamp.skyTint}
+          icon={<CreditCard size={22} color={stamp.deep} />}
           title="No loyalty cards yet"
           description="Scan a business QR code to unlock your digital loyalty card."
+          action={
+            <TouchableOpacity onPress={() => router.push('/scan')} accessibilityRole="button" style={styles.openScan}>
+              <Text style={styles.openScanText}>Open Scan</Text>
+            </TouchableOpacity>
+          }
         />
       </GlassCard>
     );
@@ -115,4 +123,6 @@ export default function LoyaltyCards() {
 const styles = StyleSheet.create({
   list: { gap: spacing.sm },
   loading: { ...typography.caption, textAlign: 'center', padding: spacing.md },
+  openScan: { minHeight: 44, justifyContent: 'center' },
+  openScanText: { fontFamily: outfit.bold, fontSize: 15, color: stamp.deep },
 });

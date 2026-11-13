@@ -8,7 +8,9 @@ import GlassInput from '@/components/ui/GlassInput';
 import GlassButton from '@/components/ui/GlassButton';
 import SectionHeader from '@/components/ui/SectionHeader';
 import { isValidHttpUrl, normalizeUrl } from '@/lib/memberPerks';
-import { colors, spacing, typography } from '@/theme';
+import { colors, spacing, typography, stamp, outfit } from '@/theme';
+
+const WEEK_ORDER = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as const;
 
 interface BusinessHours {
   open: string;
@@ -64,6 +66,7 @@ export default function BusinessSettings({ businessId }: BusinessSettingsProps) 
   }, [businessId]);
 
   const loadSettings = async () => {
+    if (!businessId) return;
     const snap = await getDoc(doc(getDb(), 'businesses', businessId));
     if (!snap.exists()) return;
     const data = snap.data();
@@ -141,15 +144,17 @@ export default function BusinessSettings({ businessId }: BusinessSettingsProps) 
         icon={<Building2 size={22} color={colors.primaryDark} />}
       />
 
-      <GlassCard style={styles.block}>
+      <GlassCard stamp style={styles.block}>
         <Text style={styles.blockTitle}>Basics</Text>
         <GlassInput
+          stamp
           placeholder="Business name *"
           value={form.name}
           onChangeText={(t) => setForm((p) => ({ ...p, name: t }))}
           icon={<Building2 size={18} color={colors.textMuted} />}
         />
         <GlassInput
+          stamp
           placeholder="Short description for customers"
           value={form.description}
           onChangeText={(t) => setForm((p) => ({ ...p, description: t }))}
@@ -158,9 +163,10 @@ export default function BusinessSettings({ businessId }: BusinessSettingsProps) 
         />
       </GlassCard>
 
-      <GlassCard style={styles.block}>
+      <GlassCard stamp style={styles.block}>
         <Text style={styles.blockTitle}>Contact</Text>
         <GlassInput
+          stamp
           placeholder="Phone *"
           value={form.contact.phone}
           onChangeText={(t) => setForm((p) => ({ ...p, contact: { ...p.contact, phone: t } }))}
@@ -168,6 +174,7 @@ export default function BusinessSettings({ businessId }: BusinessSettingsProps) 
           keyboardType="phone-pad"
         />
         <GlassInput
+          stamp
           placeholder="Email *"
           value={form.contact.email}
           onChangeText={(t) => setForm((p) => ({ ...p, contact: { ...p.contact, email: t } }))}
@@ -178,9 +185,10 @@ export default function BusinessSettings({ businessId }: BusinessSettingsProps) 
         />
       </GlassCard>
 
-      <GlassCard style={styles.block}>
+      <GlassCard stamp style={styles.block}>
         <Text style={styles.blockTitle}>Location</Text>
         <GlassInput
+          stamp
           placeholder="Street address"
           value={form.address.street}
           onChangeText={(t) => setForm((p) => ({ ...p, address: { ...p.address, street: t } }))}
@@ -188,12 +196,14 @@ export default function BusinessSettings({ businessId }: BusinessSettingsProps) 
         />
         <View style={styles.row}>
           <GlassInput
+            stamp
             placeholder="City"
             value={form.address.city}
             onChangeText={(t) => setForm((p) => ({ ...p, address: { ...p.address, city: t } }))}
             containerStyle={styles.flex}
           />
           <GlassInput
+            stamp
             placeholder="ZIP"
             value={form.address.zipCode}
             onChangeText={(t) => setForm((p) => ({ ...p, address: { ...p.address, zipCode: t } }))}
@@ -203,7 +213,7 @@ export default function BusinessSettings({ businessId }: BusinessSettingsProps) 
         </View>
       </GlassCard>
 
-      <GlassCard style={styles.block}>
+      <GlassCard stamp style={styles.block}>
         <View style={styles.hoursHeader}>
           <Star size={18} color={colors.primaryDark} />
           <Text style={styles.blockTitle}>Review Links</Text>
@@ -212,6 +222,7 @@ export default function BusinessSettings({ businessId }: BusinessSettingsProps) 
           Shown only to customers who have scanned your QR code, so they can leave a review.
         </Text>
         <GlassInput
+          stamp
           placeholder="Google review URL"
           value={form.googleReviewUrl}
           onChangeText={(t) => setForm((p) => ({ ...p, googleReviewUrl: t }))}
@@ -220,6 +231,7 @@ export default function BusinessSettings({ businessId }: BusinessSettingsProps) 
           keyboardType="url"
         />
         <GlassInput
+          stamp
           placeholder="TripAdvisor URL (optional)"
           value={form.tripAdvisorUrl}
           onChangeText={(t) => setForm((p) => ({ ...p, tripAdvisorUrl: t }))}
@@ -230,15 +242,19 @@ export default function BusinessSettings({ businessId }: BusinessSettingsProps) 
         />
       </GlassCard>
 
-      <GlassCard style={styles.block}>
+      <GlassCard stamp style={styles.block}>
         <View style={styles.hoursHeader}>
           <Clock size={18} color={colors.primaryDark} />
           <Text style={styles.blockTitle}>Hours</Text>
         </View>
-        {Object.entries(form.hours).map(([day, h]) => (
+        {WEEK_ORDER.map((day) => {
+          const h = form.hours[day] || { open: '', close: '' };
+          const label = day.slice(0, 1).toUpperCase() + day.slice(1, 3);
+          return (
           <View key={day} style={styles.hourRow}>
-            <Text style={styles.day}>{day.slice(0, 3).toUpperCase()}</Text>
+            <Text style={styles.day}>{label}</Text>
             <GlassInput
+              stamp
               placeholder="09:00"
               value={h.open}
               onChangeText={(t) => updateHour(day, 'open', t)}
@@ -246,19 +262,22 @@ export default function BusinessSettings({ businessId }: BusinessSettingsProps) 
             />
             <Text style={styles.to}>–</Text>
             <GlassInput
+              stamp
               placeholder="17:00"
               value={h.close}
               onChangeText={(t) => updateHour(day, 'close', t)}
               containerStyle={styles.timeInput}
             />
           </View>
-        ))}
+          );
+        })}
         <View style={styles.switchRow}>
           <Text style={styles.switchLabel}>Closed on Sundays</Text>
           <Switch
             value={form.closedSunday}
             onValueChange={(v) => setForm((p) => ({ ...p, closedSunday: v }))}
-            trackColor={{ true: colors.primary }}
+            trackColor={{ true: stamp.deep, false: stamp.toggleOff }}
+            thumbColor={stamp.white}
           />
         </View>
       </GlassCard>
@@ -267,10 +286,11 @@ export default function BusinessSettings({ businessId }: BusinessSettingsProps) 
       {success ? <Text style={styles.success}>Settings saved!</Text> : null}
 
       <GlassButton
+        appearance="stamp"
         label={loading ? 'Saving...' : 'Save Profile'}
         onPress={save}
         loading={loading}
-        icon={<Save size={18} color={colors.white} />}
+        icon={<Save size={18} color={stamp.ink} />}
       />
     </View>
   );
@@ -279,14 +299,14 @@ export default function BusinessSettings({ businessId }: BusinessSettingsProps) 
 const styles = StyleSheet.create({
   wrap: { paddingHorizontal: spacing.md, paddingBottom: spacing.lg, gap: spacing.sm },
   block: { gap: spacing.sm },
-  blockTitle: { ...typography.h3, fontSize: 16 },
+  blockTitle: { fontFamily: outfit.extra, fontSize: 16, color: stamp.deep },
   hint: { ...typography.caption, marginBottom: spacing.xs },
   gap: { marginTop: spacing.sm },
   row: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
   flex: { flex: 1 },
   hoursHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   hourRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, width: '100%', maxWidth: '100%' },
-  day: { width: 36, ...typography.label, fontSize: 11, flexShrink: 0 },
+  day: { width: 36, fontFamily: outfit.bold, fontSize: 13, color: stamp.deep, flexShrink: 0 },
   timeInput: { flex: 1, minWidth: 0 },
   to: { color: colors.textMuted },
   switchRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: spacing.sm },

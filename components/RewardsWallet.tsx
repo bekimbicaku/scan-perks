@@ -6,7 +6,7 @@ import { auth, getDb } from '@/lib/firebase';
 import { GlassCard } from '@/components/ui/GlassBackground';
 import EmptyState from '@/components/ui/EmptyState';
 import RewardQRModal from '@/components/RewardQRModal';
-import { colors, spacing, typography } from '@/theme';
+import { colors, spacing, typography, stamp } from '@/theme';
 
 export interface Reward {
   id: string;
@@ -54,7 +54,7 @@ export default function RewardsWallet() {
 
   if (loading) {
     return (
-      <GlassCard>
+      <GlassCard stamp>
         <Text style={styles.loadingText}>Loading rewards...</Text>
       </GlassCard>
     );
@@ -62,9 +62,11 @@ export default function RewardsWallet() {
 
   if (rewards.length === 0) {
     return (
-      <GlassCard>
+      <GlassCard stamp>
         <EmptyState
-          icon={<Gift size={36} color={colors.primary} />}
+          align="left"
+          iconBg={stamp.mintBg}
+          icon={<Gift size={22} color={stamp.mintText} />}
           title="No rewards yet"
           description="Keep scanning at your favorite businesses to earn rewards!"
         />
@@ -114,7 +116,7 @@ export default function RewardsWallet() {
         {activeRewards.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Active Rewards ({activeRewards.length})</Text>
-            <GlassCard noPadding>
+            <GlassCard stamp noPadding>
               {activeRewards.map((r) => renderReward(r, true))}
             </GlassCard>
           </View>
@@ -122,7 +124,7 @@ export default function RewardsWallet() {
         {pastRewards.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>History</Text>
-            <GlassCard noPadding>
+            <GlassCard stamp noPadding>
               {pastRewards.slice(0, 5).map((r) => renderReward(r, false))}
             </GlassCard>
           </View>

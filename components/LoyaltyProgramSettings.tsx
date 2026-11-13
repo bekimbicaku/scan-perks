@@ -2,7 +2,8 @@
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { getDb } from '@/lib/firebase';
-import { Gift, Save, TriangleAlert as AlertTriangle, Percent } from 'lucide-react-native';
+import { Gift, Save, TriangleAlert as AlertTriangle, Percent, Minus, Plus } from 'lucide-react-native';
+import { stamp, outfit } from '@/theme';
 
 interface LoyaltySettings {
   scansRequired: number;
@@ -41,6 +42,7 @@ export default function LoyaltyProgramSettings({ businessId }: LoyaltyProgramSet
   }, []);
 
   const loadSettings = async () => {
+    if (!businessId) return;
     try {
       const settingsDoc = await getDoc(doc(getDb(), 'businesses', businessId, 'settings', 'loyalty'));
       if (settingsDoc.exists()) {
@@ -161,20 +163,37 @@ export default function LoyaltyProgramSettings({ businessId }: LoyaltyProgramSet
       <View style={styles.form}>
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Required Scans for Reward</Text>
-          <TextInput
-            style={[styles.input, !canModifyStampSettings() && styles.inputDisabled]}
-            value={settings.scansRequired.toString()}
-            onChangeText={(text) =>
-              setSettings((prev) => ({
-                ...prev,
-                scansRequired: parseInt(text) || 0,
-              }))
-            }
-            keyboardType="number-pad"
-            editable={canModifyStampSettings()}
-            placeholder="Enter number of scans"
-            placeholderTextColor="#94a3b8"
-          />
+          <View style={styles.stepper}>
+            <TouchableOpacity
+              style={styles.stepButton}
+              accessibilityRole="button"
+              accessibilityLabel="Decrease required scans"
+              disabled={!canModifyStampSettings()}
+              onPress={() =>
+                setSettings((prev) => ({
+                  ...prev,
+                  scansRequired: Math.max(1, prev.scansRequired - 1),
+                }))
+              }
+            >
+              <Minus size={18} color={stamp.deep} />
+            </TouchableOpacity>
+            <Text style={styles.stepValue}>{settings.scansRequired}</Text>
+            <TouchableOpacity
+              style={styles.stepButton}
+              accessibilityRole="button"
+              accessibilityLabel="Increase required scans"
+              disabled={!canModifyStampSettings()}
+              onPress={() =>
+                setSettings((prev) => ({
+                  ...prev,
+                  scansRequired: prev.scansRequired + 1,
+                }))
+              }
+            >
+              <Plus size={18} color={stamp.deep} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         <View style={styles.inputGroup}>
@@ -197,18 +216,22 @@ export default function LoyaltyProgramSettings({ businessId }: LoyaltyProgramSet
         </View>
 
         <TouchableOpacity
-          style={[styles.toggleRow, settings.welcomeStampEnabled && styles.toggleOn]}
+          style={styles.toggleRow}
           onPress={() =>
             setSettings((prev) => ({ ...prev, welcomeStampEnabled: !prev.welcomeStampEnabled }))
           }
         >
-          <Text style={styles.toggleTitle}>Welcome stamp</Text>
-          <Text style={styles.toggleHint}>Give 1 extra stamp on a customer’s first visit.</Text>
-          <Text style={styles.toggleState}>{settings.welcomeStampEnabled ? 'On' : 'Off'}</Text>
+          <View style={styles.toggleCopy}>
+            <Text style={styles.toggleTitle}>Welcome stamp</Text>
+            <Text style={styles.toggleHint}>Give 1 extra stamp on a customer’s first visit.</Text>
+          </View>
+          <View style={[styles.switchTrack, settings.welcomeStampEnabled && styles.switchTrackOn]}>
+            <View style={[styles.switchThumb, settings.welcomeStampEnabled && styles.switchThumbOn]} />
+          </View>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.toggleRow, settings.birthdayRewardEnabled && styles.toggleOn]}
+          style={styles.toggleRow}
           onPress={() =>
             setSettings((prev) => ({
               ...prev,
@@ -216,9 +239,13 @@ export default function LoyaltyProgramSettings({ businessId }: LoyaltyProgramSet
             }))
           }
         >
-          <Text style={styles.toggleTitle}>Birthday treat</Text>
-          <Text style={styles.toggleHint}>Issue a reward during their birthday week.</Text>
-          <Text style={styles.toggleState}>{settings.birthdayRewardEnabled ? 'On' : 'Off'}</Text>
+          <View style={styles.toggleCopy}>
+            <Text style={styles.toggleTitle}>Birthday treat</Text>
+            <Text style={styles.toggleHint}>Issue a reward during their birthday week.</Text>
+          </View>
+          <View style={[styles.switchTrack, settings.birthdayRewardEnabled && styles.switchTrackOn]}>
+            <View style={[styles.switchThumb, settings.birthdayRewardEnabled && styles.switchThumbOn]} />
+          </View>
         </TouchableOpacity>
 
         {settings.birthdayRewardEnabled ? (
@@ -300,7 +327,7 @@ export default function LoyaltyProgramSettings({ businessId }: LoyaltyProgramSet
           onPress={handleSave}
           disabled={loading}
         >
-          <Save size={20} color="#fff" />
+          <Save size={20} color={stamp.ink} />
           <Text style={styles.saveButtonText}>{loading ? 'Saving...' : 'Save Settings'}</Text>
         </TouchableOpacity>
       </View>
@@ -331,10 +358,13 @@ export default function LoyaltyProgramSettings({ businessId }: LoyaltyProgramSet
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
+    backgroundColor: stamp.white,
+    borderRadius: stamp.radiusCard,
+    borderWidth: 1,
+    borderColor: stamp.line,
     padding: 20,
-    marginBottom: 20,
+    marginHorizontal: 20,
+    marginBottom: 16,
   },
   header: {
     flexDirection: 'row',
@@ -343,9 +373,9 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   title: {
+    fontFamily: outfit.extra,
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#0f172a',
+    color: stamp.deep,
   },
   warningBox: {
     flexDirection: 'row',
@@ -368,18 +398,41 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   label: {
+    fontFamily: outfit.semibold,
     fontSize: 16,
-    fontWeight: '600',
-    color: '#0f172a',
+    color: stamp.deep,
+  },
+  stepper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  stepButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: stamp.input,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: stamp.white,
+  },
+  stepValue: {
+    minWidth: 36,
+    textAlign: 'center',
+    fontFamily: outfit.extra,
+    fontSize: 22,
+    color: stamp.deep,
   },
   input: {
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 8,
+    borderWidth: 1.5,
+    borderColor: stamp.input,
+    borderRadius: stamp.radiusInput,
     padding: 14,
     fontSize: 16,
-    backgroundColor: '#f8fafc',
-    color: '#0C4A6E',
+    fontFamily: outfit.regular,
+    backgroundColor: stamp.white,
+    color: stamp.ink,
     minHeight: 48,
   },
   inputDisabled: {
@@ -411,9 +464,10 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   saveButton: {
-    backgroundColor: '#0891b2',
+    backgroundColor: stamp.sky,
+    minHeight: stamp.buttonHeight,
     padding: 16,
-    borderRadius: 8,
+    borderRadius: stamp.radiusButton,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -423,9 +477,9 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   saveButtonText: {
-    color: '#fff',
+    color: stamp.ink,
+    fontFamily: outfit.bold,
     fontSize: 16,
-    fontWeight: '600',
   },
   currentSettings: {
     marginTop: 24,
@@ -462,28 +516,40 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   toggleRow: {
-    backgroundColor: '#f8fafc',
-    borderRadius: 12,
-    padding: 14,
-    gap: 4,
+    minHeight: 44,
+    borderRadius: 16,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
-  toggleOn: {
-    backgroundColor: '#ecfeff',
-  },
+  toggleCopy: { flex: 1 },
   toggleTitle: {
+    fontFamily: outfit.bold,
     fontSize: 16,
-    fontWeight: '700',
-    color: '#0f172a',
+    color: stamp.deep,
   },
   toggleHint: {
+    fontFamily: outfit.regular,
     fontSize: 13,
-    color: '#64748b',
+    color: stamp.muted,
+    marginTop: 2,
   },
-  toggleState: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#0891b2',
-    marginTop: 4,
+  switchTrack: {
+    width: 52,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: stamp.toggleOff,
+    justifyContent: 'center',
+    paddingHorizontal: 3,
   },
+  switchTrackOn: { backgroundColor: stamp.deep },
+  switchThumb: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: stamp.white,
+  },
+  switchThumbOn: { alignSelf: 'flex-end' },
 });
 
