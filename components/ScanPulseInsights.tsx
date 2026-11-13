@@ -16,6 +16,7 @@ export default function ScanPulseInsights({ businessId }: ScanPulseInsightsProps
   const [pulse, setPulse] = useState({ love: 0, good: 0, meh: 0, total: 0 });
 
   useEffect(() => {
+    if (!businessId) return;
     const unsub = onSnapshot(doc(getDb(), 'businesses', businessId, 'pulse', 'summary'), (snap) => {
       const d = snap.data();
       setPulse({
@@ -32,7 +33,7 @@ export default function ScanPulseInsights({ businessId }: ScanPulseInsightsProps
     return (
       <View style={styles.wrap}>
         <SectionHeader title="Scan Pulse™" subtitle="Live customer mood after each scan" icon={<Activity size={20} color={colors.accent} />} />
-        <GlassCard>
+        <GlassCard stamp>
           <Text style={styles.empty}>Pulse data appears when customers rate their visit.</Text>
         </GlassCard>
       </View>
@@ -48,7 +49,7 @@ export default function ScanPulseInsights({ businessId }: ScanPulseInsightsProps
         subtitle={`${pulse.total} visit ratings`}
         icon={<Activity size={20} color={colors.accent} />}
       />
-      <GlassCard>
+      <GlassCard stamp>
         {moods.map((mood) => {
           const count = pulse[mood];
           const pct = pulse.total ? Math.round((count / pulse.total) * 100) : 0;

@@ -31,6 +31,7 @@ import {
   Gift,
 } from 'lucide-react-native';
 import * as Location from 'expo-location';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router, useFocusEffect, useRootNavigationState } from 'expo-router';
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import GlassBackground, { GlassCard } from '@/components/ui/GlassBackground';
@@ -51,7 +52,7 @@ import { getLoyaltySettings, DEFAULT_SCANS_REQUIRED } from '@/lib/loyalty';
 import { haversineDistanceKm, formatDistance } from '@/lib/geo';
 import { claimJoinStamps } from '@/lib/joinStamp';
 import { isVenueLive } from '@/lib/trial';
-import { colors, spacing, typography, radius } from '@/theme';
+import { colors, spacing, typography, radius, stamp, outfit, personMark } from '@/theme';
 
 interface Business {
   id: string;
@@ -94,6 +95,7 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [totalPoints, setTotalPoints] = useState(0);
+  const [firstName, setFirstName] = useState('');
   const [userLocation, setUserLocation] = useState<Location.LocationObject | null>(null);
   const [isReady] = useFrameworkReady();
   const navigationState = useRootNavigationState();
@@ -112,6 +114,17 @@ export default function HomeScreen() {
         console.warn('[join-stamp]', err);
       }
       loadUserData();
+      getDoc(doc(getDb(), 'users', auth.currentUser.uid))
+        .then((userDoc) => {
+          const name =
+            (userDoc.exists() ? userDoc.data().name : '') ||
+            auth.currentUser?.email?.split('@')[0] ||
+            '';
+          setFirstName(String(name).trim().split(/\s+/)[0] || '');
+        })
+        .catch(() => {
+          setFirstName(auth.currentUser?.email?.split('@')[0] || '');
+        });
     };
     checkAuth();
   }, [isReady, navigationState?.key]);
@@ -294,11 +307,16 @@ export default function HomeScreen() {
 
   const hasCard = scannedBusinesses.length > 0;
   const otherNearby = nearbyBusinesses.filter((business) => business.id !== featuredVenue?.id);
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  const venueProgress = featuredVenue
+    ? scannedBusinesses.find((business) => business.id === featuredVenue.id)?.totalScans ?? 0
+    : 0;
 
   if (!isReady || !navigationState?.key) {
     return (
-      <GlassBackground>
-        <ScreenContainer>
+    <GlassBackground variant="customer">
+      <ScreenContainer>
           <Text style={styles.loadingText}>Loading...</Text>
         </ScreenContainer>
       </GlassBackground>
@@ -306,19 +324,37 @@ export default function HomeScreen() {
   }
 
   return (
-    <GlassBackground>
+    <GlassBackground variant="customer">
       <ScreenContainer
         scroll
+        contentStyle={styles.tabSpace}
         scrollProps={{
-          refreshControl: <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />,
+          refreshControl: <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={stamp.sky} />,
         }}
       >
+          <View style={styles.topBar}>
+            <BrandLogo size="sm" centered={false} />
+            <TouchableOpacity
+              onPress={() => router.push('/profile')}
+              accessibilityRole="button"
+              accessibilityLabel="Profile"
+            >
+              <LinearGradient
+                colors={[stamp.sky, stamp.deep]}
+                start={{ x: 0.1, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.avatar}
+              >
+                <Text style={styles.avatarText}>{personMark(firstName)}</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
           <View style={styles.welcomeSection}>
-            <BrandLogo size="lg" />
+            <Text style={styles.greeting}>{greeting}{firstName ? `,\n${firstName}` : ''}</Text>
             <Text style={styles.welcomeSubtitle}>Earn rewards at local businesses worldwide</Text>
             <View style={styles.statsRow}>
-              <StatCard icon={<Trophy size={22} color={colors.primaryDark} />} label="Total Points" value={totalPoints} />
-              <StatCard icon={<Gift size={22} color={colors.success} />} label="Businesses" value={scannedBusinesses.length} accent={colors.success} />
+              <StatCard icon={<Trophy size={22} color={stamp.deep} />} label="Total Points" value={totalPoints} iconBg={stamp.skyTint} />
+              <StatCard icon={<Gift size={22} color={stamp.mintText} />} label="Businesses" value={scannedBusinesses.length} iconBg={stamp.mintBg} />
             </View>
           </View>
 
@@ -326,8 +362,10 @@ export default function HomeScreen() {
             <View style={styles.section}>
               <LiveVenueCard
                 name={featuredVenue.name}
+                type={featuredVenue.type}
                 reward={featuredVenue.reward}
                 scansRequired={featuredVenue.scansRequired}
+                totalScans={venueProgress}
                 onOpen={() => router.push(`/business/${featuredVenue.id}`)}
                 onScan={() => router.push('/scan')}
               />
@@ -383,7 +421,7 @@ export default function HomeScreen() {
                       key={business.id}
                       onPress={() => router.push(`/business/${business.id}`)}
                     >
-                      <GlassCard style={styles.businessCard}>
+                      <GlassCard stamp style={styles.businessCard}>
                         <View style={styles.businessHeader}>
                           <Image source={{ uri: business.logoUrl }} style={styles.businessLogo} />
                           <View style={styles.businessInfo}>
@@ -439,7 +477,7 @@ export default function HomeScreen() {
             />
 
             {otherNearby.length === 0 ? (
-              <GlassCard>
+              <GlassCard stamp>
                 <EmptyState
                   icon={<Building2 size={36} color={colors.textMuted} />}
                   title="No Businesses Found"
@@ -453,7 +491,7 @@ export default function HomeScreen() {
                     key={business.id}
                     onPress={() => router.push(`/business/${business.id}`)}
                   >
-                    <GlassCard style={[styles.nearbyCard, business.isPremium && styles.premiumCard]} noPadding>
+                    <GlassCard stamp style={[styles.nearbyCard, business.isPremium && styles.premiumCard]} noPadding>
                       {business.isPremium && (
                         <View style={styles.premiumBadge}>
                           <Star size={12} color={colors.white} fill={colors.white} />
@@ -505,8 +543,32 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  welcomeSection: { padding: spacing.md, alignItems: 'center', gap: spacing.sm },
-  welcomeSubtitle: { ...typography.caption, textAlign: 'center', marginBottom: spacing.sm },
+  tabSpace: { paddingBottom: 120 },
+  topBar: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  avatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: stamp.deep,
+  },
+  avatarText: { fontFamily: outfit.extra, fontSize: 18, color: stamp.white },
+  welcomeSection: { paddingHorizontal: 20, paddingTop: 18, gap: 8 },
+  greeting: {
+    fontFamily: outfit.extra,
+    fontSize: 34,
+    lineHeight: 36,
+    letterSpacing: -1,
+    color: stamp.deep,
+  },
+  welcomeSubtitle: { fontFamily: outfit.regular, fontSize: 16, color: stamp.muted, marginBottom: spacing.sm },
   statsRow: { flexDirection: 'row', gap: spacing.sm, width: '100%', maxWidth: '100%' },
   section: { paddingHorizontal: spacing.md, paddingBottom: spacing.sm },
   sectionTitle: { ...typography.h2, fontSize: 20, marginBottom: spacing.md },

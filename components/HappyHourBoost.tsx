@@ -7,7 +7,7 @@ import { DEFAULT_HAPPY_HOUR, HappyHourConfig } from '@/lib/features';
 import { GlassCard } from '@/components/ui/GlassBackground';
 import GlassButton from '@/components/ui/GlassButton';
 import SectionHeader from '@/components/ui/SectionHeader';
-import { colors, spacing, typography } from '@/theme';
+import { colors, spacing, typography, stamp } from '@/theme';
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -21,6 +21,7 @@ export default function HappyHourBoost({ businessId }: HappyHourBoostProps) {
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
+    if (!businessId) return;
     getDoc(doc(getDb(), 'businesses', businessId, 'settings', 'happyHour')).then((snap) => {
       if (snap.exists()) setConfig({ ...DEFAULT_HAPPY_HOUR, ...snap.data() });
     });
@@ -48,13 +49,14 @@ export default function HappyHourBoost({ businessId }: HappyHourBoostProps) {
         subtitle="2× scan credit during power hours — unique to Scan Perks"
         icon={<Zap size={20} color={colors.warning} />}
       />
-      <GlassCard style={styles.card}>
+      <GlassCard stamp style={styles.card}>
         <View style={styles.row}>
           <Text style={styles.label}>Enable boost</Text>
           <Switch
             value={config.enabled}
             onValueChange={(v) => setConfig((p) => ({ ...p, enabled: v }))}
-            trackColor={{ true: colors.primary, false: colors.border }}
+            trackColor={{ true: stamp.deep, false: stamp.toggleOff }}
+            thumbColor={stamp.white}
           />
         </View>
 
@@ -87,7 +89,7 @@ export default function HappyHourBoost({ businessId }: HappyHourBoostProps) {
         </View>
 
         {saved ? <Text style={styles.saved}>Boost schedule saved!</Text> : null}
-        <GlassButton label={saving ? 'Saving...' : 'Save Boost Schedule'} onPress={save} loading={saving} />
+        <GlassButton appearance="stamp" label={saving ? 'Saving...' : 'Save Boost Schedule'} onPress={save} loading={saving} />
       </GlassCard>
     </View>
   );
@@ -103,16 +105,16 @@ const styles = StyleSheet.create({
   dayChip: {
     paddingHorizontal: 12,
     paddingVertical: 10,
-    minHeight: 40,
-    minWidth: 40,
+    minHeight: 44,
+    minWidth: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 20,
-    backgroundColor: colors.glass.tint,
+    borderRadius: 22,
+    backgroundColor: stamp.skyTint,
   },
-  dayChipActive: { backgroundColor: colors.primary },
-  dayText: { ...typography.caption, fontSize: 12, fontWeight: '600' },
-  dayTextActive: { color: colors.white },
+  dayChipActive: { backgroundColor: stamp.sky },
+  dayText: { ...typography.caption, fontSize: 12, fontWeight: '600', color: stamp.deep },
+  dayTextActive: { color: stamp.ink },
   multiplierRow: { flexDirection: 'row', gap: spacing.sm },
   multBtn: {
     flex: 1,
@@ -124,8 +126,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: colors.glass.tint,
   },
-  multBtnActive: { backgroundColor: colors.warning },
-  multText: { fontWeight: '800', color: colors.navy },
-  multTextActive: { color: colors.white },
+  multBtnActive: { backgroundColor: stamp.amber },
+  multText: { fontWeight: '800', color: stamp.deep },
+  multTextActive: { color: stamp.ink },
   saved: { color: colors.success, textAlign: 'center', fontWeight: '600' },
 });

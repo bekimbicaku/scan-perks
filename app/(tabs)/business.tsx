@@ -44,7 +44,7 @@ import ScanPulseInsights from '@/components/ScanPulseInsights';
 import GoLiveKit from '@/components/GoLiveKit';
 import GlassBackground from '@/components/ui/GlassBackground';
 import GlassInput from '@/components/ui/GlassInput';
-import { colors, spacing, radius } from '@/theme';
+import { colors, spacing, radius, stamp, outfit } from '@/theme';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { auth, getAuthInstance, getDb, getStorageInstance, deleteBusiness, onAuthStateChanged } from '@/lib/firebase';
@@ -824,8 +824,8 @@ export default function BusinessScreen() {
 
       <View style={styles.quickActions}>
         <TouchableOpacity style={styles.actionCard} onPress={() => setShowQRModal(true)}>
-          <View style={[styles.actionIcon, { backgroundColor: `${colors.primary}18` }]}>
-            <QrCode size={22} color={colors.primaryDark} />
+          <View style={[styles.actionIcon, { backgroundColor: stamp.skyTint }]}>
+            <QrCode size={22} color={stamp.deep} />
           </View>
           <Text style={styles.actionTitle}>QR Code</Text>
         </TouchableOpacity>
@@ -833,8 +833,8 @@ export default function BusinessScreen() {
           style={styles.actionCard}
           onPress={() => router.push(`/redeem?businessId=${auth.currentUser?.uid || ''}`)}
         >
-          <View style={[styles.actionIcon, { backgroundColor: `${colors.success}18` }]}>
-            <ScanLine size={22} color={colors.success} />
+          <View style={[styles.actionIcon, { backgroundColor: stamp.mintBg }]}>
+            <ScanLine size={22} color={stamp.mintText} />
           </View>
           <Text style={styles.actionTitle}>Redeem</Text>
         </TouchableOpacity>
@@ -848,8 +848,8 @@ export default function BusinessScreen() {
             setShowSubscriptionModal(true);
           }}
         >
-          <View style={[styles.actionIcon, { backgroundColor: `${colors.accent}18` }]}>
-            <CreditCard size={22} color={colors.accent} />
+          <View style={[styles.actionIcon, { backgroundColor: stamp.amberBg }]}>
+            <CreditCard size={22} color={stamp.amberText} />
           </View>
           <Text style={styles.actionTitle}>Plan</Text>
         </TouchableOpacity>
@@ -857,6 +857,7 @@ export default function BusinessScreen() {
 
       {businessData.planStatus === 'trial' ? (
         <TrialStatusCard
+          variant={dashboardTab === 'overview' ? 'full' : 'slim'}
           trialEndsAt={businessData.trialEndsAt || null}
           loading={subscribing}
           onSubscribe={() => {
@@ -1001,7 +1002,7 @@ export default function BusinessScreen() {
   );
 
   return (
-    <GlassBackground>
+    <GlassBackground variant="business">
       <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
         {error ? (
           <View style={styles.errorContainer}>
@@ -1379,7 +1380,7 @@ const styles = StyleSheet.create({
   },
   dashboard: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: 'transparent',
     width: '100%',
     maxWidth: '100%',
   },
@@ -1437,12 +1438,14 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     flexBasis: 96,
     minWidth: 0,
+    minHeight: 96,
     alignItems: 'center',
+    justifyContent: 'center',
     padding: spacing.md,
-    backgroundColor: colors.glass.backgroundStrong,
-    borderRadius: 14,
+    backgroundColor: stamp.white,
+    borderRadius: 22,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: stamp.line,
   },
   actionIcon: {
     width: 44,
@@ -1453,9 +1456,9 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   actionTitle: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.navy,
+    fontFamily: outfit.semibold,
+    fontSize: 13,
+    color: stamp.deep,
     textAlign: 'center',
   },
   errorContainer: {
@@ -1494,12 +1497,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   contentContainer: {
-    paddingBottom: Platform.OS === 'web' ? 40 : 16,
+    paddingBottom: 120,
     width: '100%',
     maxWidth: '100%',
   },
-  dangerLink: { alignItems: 'center', padding: spacing.lg },
-  dangerText: { color: colors.error, fontWeight: '600' },
+  dangerLink: { alignItems: 'center', minHeight: 44, justifyContent: 'center', padding: spacing.lg },
+  dangerText: { color: stamp.danger, fontFamily: outfit.bold, fontSize: 16 },
   backRow: {
     flexDirection: 'row',
     alignItems: 'center',

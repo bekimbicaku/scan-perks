@@ -60,7 +60,7 @@ export default function BusinessGrowthHub({ businessId, businessName }: Business
         icon={<Sparkles size={22} color={colors.primary} />}
       />
 
-      <GlassCard style={styles.card}>
+      <GlassCard stamp style={styles.card}>
         <View style={styles.actions}>
           <TouchableOpacity style={styles.action} onPress={handleShare}>
             <Share2 size={22} color={colors.primaryDark} />
@@ -76,7 +76,7 @@ export default function BusinessGrowthHub({ businessId, businessName }: Business
           </TouchableOpacity>
         </View>
 
-        <GlassButton label="Share Business Link" onPress={handleShare} variant="secondary" />
+        <GlassButton appearance="stamp" variant="secondary" label="Share Business Link" onPress={handleShare} />
       </GlassCard>
     </View>
   );

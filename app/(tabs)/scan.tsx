@@ -1,9 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
-import { StyleSheet, Text, View, Platform, TouchableOpacity } from 'react-native';
+import { useState, useEffect, useRef, type ReactNode } from 'react';
+import { StyleSheet, Text, View, Platform, TouchableOpacity, Animated } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import ScreenContainer from '@/components/ui/ScreenContainer';
-import { Camera, QrCode, Shield } from 'lucide-react-native';
+import { Camera, QrCode } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { auth } from '@/lib/firebase';
 import { router } from 'expo-router';
@@ -11,9 +10,9 @@ import ScanPulseModal from '@/components/ScanPulseModal';
 import { getSurpriseBonus, PulseMood } from '@/lib/features';
 import { submitScanPulse, updateLocalPassport, applySurpriseBonus } from '@/lib/pulse';
 import { processBusinessScan } from '@/lib/scan';
-import GlassBackground, { GlassCard } from '@/components/ui/GlassBackground';
 import GlassButton from '@/components/ui/GlassButton';
-import { colors, spacing, typography } from '@/theme';
+import BrandLogo from '@/components/ui/BrandLogo';
+import { colors, stamp, outfit } from '@/theme';
 
 export default function ScanScreen() {
   const insets = useSafeAreaInsets();
@@ -103,50 +102,53 @@ export default function ScanScreen() {
     setScanProgress(null);
   };
 
-  if (!permission?.granted) {
+  const cameraReady = Boolean(permission?.granted) && Platform.OS !== 'web';
+
+  if (!permission?.granted && Platform.OS !== 'web') {
     return (
-      <GlassBackground>
-        <ScreenContainer>
+      <View style={styles.screen}>
+        <ScanChrome cameraReady={false} insetsBottom={insets.bottom}>
           <View style={styles.center}>
-            <Shield size={48} color={colors.primary} />
             <Text style={styles.permissionTitle}>Camera Permission Required</Text>
             <Text style={styles.permissionText}>
               We need camera access to scan QR codes and earn rewards.
             </Text>
             <GlassButton
+              appearance="stamp"
               label="Grant Permission"
               onPress={requestPermission}
-              icon={<Camera size={20} color={colors.white} />}
+              icon={<Camera size={20} color={stamp.ink} />}
             />
           </View>
-        </ScreenContainer>
-      </GlassBackground>
+        </ScanChrome>
+      </View>
     );
   }
 
   if (Platform.OS === 'web') {
     return (
-      <GlassBackground>
-        <ScreenContainer>
-          <View style={styles.center}>
-            <QrCode size={48} color={colors.primary} />
-            <Text style={styles.permissionTitle}>QR Code Scanning</Text>
-            <Text style={styles.permissionText}>
-              Please use our mobile app to scan QR codes and earn points.
-            </Text>
+      <View style={styles.screen}>
+        <ScanChrome cameraReady={false} insetsBottom={insets.bottom}>
+          <Viewfinder />
+          <View style={styles.scanLabel}>
+            <QrCode size={18} color={stamp.ink} />
+            <Text style={styles.scanLabelText}>Scan Business QR Code</Text>
           </View>
-        </ScreenContainer>
-      </GlassBackground>
+          <Text style={styles.webNote}>Please use our mobile app to scan QR codes and earn points.</Text>
+          <ScanSteps />
+        </ScanChrome>
+      </View>
     );
   }
 
   return (
-    <View style={styles.flex}>
+    <View style={styles.screen}>
       <CameraView
         style={StyleSheet.absoluteFillObject}
         onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
       />
-      <View style={styles.overlay} pointerEvents="box-none">
+      <View style={styles.dim} pointerEvents="none" />
+      <ScanChrome cameraReady={cameraReady} insetsBottom={insets.bottom}>
         {success && scanProgress ? (
           <StampResultPanel
             totalScans={scanProgress.totalScans}
@@ -156,28 +158,98 @@ export default function ScanScreen() {
           />
         ) : (
           <>
-            <View style={styles.scanFrameOuter}>
-              <View style={styles.scanFrame}>
-                <QrCode size={32} color={colors.white} />
-              </View>
+            <Viewfinder />
+            <View style={styles.scanLabel}>
+              <QrCode size={18} color={stamp.ink} />
+              <Text style={styles.scanLabelText}>Scan Business QR Code</Text>
             </View>
-            <Text style={styles.scanText}>Scan Business QR Code</Text>
+            <ScanSteps />
           </>
         )}
-
-        {error && (
-          <View style={[styles.errorContainer, { bottom: Math.max(insets.bottom, 16) + 88 }]}>
+        {error ? (
+          <View style={styles.errorContainer}>
             <Text style={styles.errorText}>{error}</Text>
           </View>
-        )}
-      </View>
-
+        ) : null}
+      </ScanChrome>
       <ScanPulseModal
         visible={pulseVisible}
         businessName={pulseBusinessName}
         onSubmit={handlePulse}
         onSkip={() => setPulseVisible(false)}
       />
+    </View>
+  );
+}
+
+function ScanChrome({
+  cameraReady,
+  insetsBottom,
+  children,
+}: {
+  cameraReady: boolean;
+  insetsBottom: number;
+  children: ReactNode;
+}) {
+  return (
+    <View style={[styles.chrome, { paddingBottom: Math.max(insetsBottom, 16) + 108 }]} pointerEvents="box-none">
+      <View style={styles.header}>
+        <BrandLogo size="sm" centered={false} tone="light" />
+        {cameraReady ? (
+          <View style={styles.ready}>
+            <Text style={styles.readyText}>Camera ready</Text>
+          </View>
+        ) : null}
+      </View>
+      <Text style={styles.title}>Collect a stamp</Text>
+      <Text style={styles.subtitle}>Point your camera at the QR on the counter.</Text>
+      {children}
+    </View>
+  );
+}
+
+function Viewfinder() {
+  const sweep = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(sweep, { toValue: 1, duration: 2400, useNativeDriver: false }),
+        Animated.timing(sweep, { toValue: 0, duration: 2400, useNativeDriver: false }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [sweep]);
+
+  const top = sweep.interpolate({ inputRange: [0, 1], outputRange: [24, 220] });
+
+  return (
+    <View style={styles.finder}>
+      <View style={styles.brackets}>
+        <View style={[styles.corner, styles.cornerTL]} />
+        <View style={[styles.corner, styles.cornerTR]} />
+        <View style={[styles.corner, styles.cornerBL]} />
+        <View style={[styles.corner, styles.cornerBR]} />
+      </View>
+      <QrCode size={72} color="rgba(125, 211, 252, 0.35)" />
+      <Animated.View style={[styles.sweep, { top }]} />
+    </View>
+  );
+}
+
+function ScanSteps() {
+  const steps = ['Scan the counter QR', 'Collect a stamp', 'Unlock rewards'];
+  return (
+    <View style={styles.steps}>
+      {steps.map((step, index) => (
+        <View key={step} style={styles.step}>
+          <View style={styles.stepNum}>
+            <Text style={styles.stepNumText}>{index + 1}</Text>
+          </View>
+          <Text style={styles.stepText}>{step}</Text>
+        </View>
+      ))}
     </View>
   );
 }
@@ -235,51 +307,120 @@ function StampResultPanel({
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1 },
-  camera: { flex: 1 },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'center',
+  screen: { flex: 1, backgroundColor: stamp.scanBg },
+  dim: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(4, 20, 33, 0.45)' },
+  chrome: { flex: 1, paddingTop: 26 },
+  header: {
+    paddingHorizontal: 20,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: 44,
   },
-  scanFrameOuter: {
-    padding: 4,
-    borderRadius: 28,
-    borderWidth: 2,
-    borderColor: 'rgba(125, 211, 252, 0.6)',
-  },
-  scanFrame: {
-    width: 250,
-    height: 250,
-    borderWidth: 2,
-    borderColor: colors.white,
-    borderRadius: 24,
-    justifyContent: 'center',
+  ready: {
+    height: 28,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.14)',
     alignItems: 'center',
-    backgroundColor: 'rgba(12, 74, 110, 0.35)',
+    justifyContent: 'center',
   },
-  scanText: {
-    color: colors.white,
-    fontSize: 18,
-    fontWeight: 'bold',
+  readyText: { fontFamily: outfit.bold, fontSize: 12, color: stamp.white },
+  title: {
+    marginTop: 22,
     textAlign: 'center',
-    marginTop: 24,
-    backgroundColor: 'rgba(12, 74, 110, 0.75)',
-    padding: 16,
-    borderRadius: 16,
+    fontFamily: outfit.extra,
+    fontSize: 32,
+    letterSpacing: -0.8,
+    color: stamp.white,
+  },
+  subtitle: {
+    marginTop: 8,
+    textAlign: 'center',
+    paddingHorizontal: 24,
+    fontFamily: outfit.regular,
+    fontSize: 16,
+    color: stamp.scanMuted,
+  },
+  finder: {
+    width: 272,
+    height: 272,
+    marginTop: 34,
+    alignSelf: 'center',
+    borderRadius: 30,
+    backgroundColor: '#0F3350',
+    alignItems: 'center',
+    justifyContent: 'center',
     overflow: 'hidden',
   },
-  errorContainer: {
+  brackets: { ...StyleSheet.absoluteFillObject, margin: 18 },
+  corner: {
     position: 'absolute',
-    bottom: 100,
-    left: 20,
-    right: 20,
+    width: 52,
+    height: 52,
+    borderColor: stamp.sky,
+  },
+  cornerTL: { top: 0, left: 0, borderTopWidth: 6, borderLeftWidth: 6, borderTopLeftRadius: 26 },
+  cornerTR: { top: 0, right: 0, borderTopWidth: 6, borderRightWidth: 6, borderTopRightRadius: 26 },
+  cornerBL: { bottom: 0, left: 0, borderBottomWidth: 6, borderLeftWidth: 6, borderBottomLeftRadius: 26 },
+  cornerBR: { bottom: 0, right: 0, borderBottomWidth: 6, borderRightWidth: 6, borderBottomRightRadius: 26 },
+  sweep: {
+    position: 'absolute',
+    left: 28,
+    right: 28,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: stamp.sky,
+  },
+  scanLabel: {
+    marginTop: 30,
+    marginHorizontal: 20,
+    minHeight: 54,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 18,
+    backgroundColor: stamp.sky,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  scanLabelText: { fontFamily: outfit.bold, fontSize: 16, color: stamp.ink, textAlign: 'center' },
+  webNote: {
+    marginTop: 14,
+    marginHorizontal: 24,
+    textAlign: 'center',
+    fontFamily: outfit.regular,
+    fontSize: 14,
+    lineHeight: 20,
+    color: stamp.scanMuted,
+  },
+  steps: { flexDirection: 'row', gap: 10, marginTop: 34, marginHorizontal: 24 },
+  step: { flex: 1, alignItems: 'center' },
+  stepNum: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(56, 189, 248, 0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepNumText: { fontFamily: outfit.extra, fontSize: 14, color: stamp.sky },
+  stepText: {
+    marginTop: 8,
+    textAlign: 'center',
+    fontFamily: outfit.regular,
+    fontSize: 13,
+    lineHeight: 17,
+    color: stamp.scanMuted,
+  },
+  errorContainer: {
+    marginTop: 16,
+    marginHorizontal: 20,
     backgroundColor: colors.errorLight,
     padding: 16,
     borderRadius: 16,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.2)',
   },
   errorText: { color: colors.error, fontSize: 16, textAlign: 'center' },
   stamps: {
@@ -316,13 +457,27 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   dismiss: {
-    backgroundColor: colors.primary,
+    backgroundColor: stamp.sky,
+    minHeight: 44,
     paddingVertical: 12,
     paddingHorizontal: 28,
-    borderRadius: 12,
+    borderRadius: stamp.radiusButton,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  dismissText: { color: colors.white, fontSize: 16, fontWeight: '600' },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: spacing.lg, gap: spacing.md },
-  permissionTitle: { ...typography.h2, textAlign: 'center' },
-  permissionText: { ...typography.caption, textAlign: 'center', maxWidth: '100%', paddingHorizontal: spacing.md, marginBottom: spacing.md },
+  dismissText: { color: stamp.ink, fontFamily: outfit.bold, fontSize: 16 },
+  center: { marginTop: 28, paddingHorizontal: 24, gap: 12 },
+  permissionTitle: {
+    fontFamily: outfit.extra,
+    fontSize: 22,
+    color: stamp.white,
+    textAlign: 'center',
+  },
+  permissionText: {
+    fontFamily: outfit.regular,
+    fontSize: 15,
+    lineHeight: 22,
+    color: stamp.scanMuted,
+    textAlign: 'center',
+  },
 });

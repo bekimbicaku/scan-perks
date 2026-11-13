@@ -1,5 +1,6 @@
 import 'react-native-gesture-handler';
 import { useEffect } from 'react';
+import { useFonts, Outfit_400Regular, Outfit_500Medium, Outfit_600SemiBold, Outfit_700Bold, Outfit_800ExtraBold } from '@expo-google-fonts/outfit';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { AppState, Platform, View } from 'react-native';
@@ -17,6 +18,13 @@ import { ensureFirebaseServices } from '@/lib/firebase';
 
 export default function RootLayout() {
   ensureFirebaseServices();
+  useFonts({
+    Outfit_400Regular,
+    Outfit_500Medium,
+    Outfit_600SemiBold,
+    Outfit_700Bold,
+    Outfit_800ExtraBold,
+  });
   const [isReady] = useFrameworkReady();
   const configError = getFirebaseConfigError();
 

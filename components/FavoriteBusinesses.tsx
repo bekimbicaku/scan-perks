@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView } from 'react-native';
 import { doc, getDoc, onSnapshot } from 'firebase/firestore';
-import { Heart, MapPin } from 'lucide-react-native';
+import { Heart, MapPin, Plus } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { auth, getDb } from '@/lib/firebase';
 import { toggleFavorite } from '@/lib/engagement';
 import { GlassCard } from '@/components/ui/GlassBackground';
 import SectionHeader from '@/components/ui/SectionHeader';
-import { colors, spacing, typography } from '@/theme';
+import { colors, spacing, stamp, outfit, venueMark } from '@/theme';
+import { LinearGradient } from 'expo-linear-gradient';
 
 interface FavoriteBusiness {
   id: string;
@@ -47,27 +48,44 @@ export default function FavoriteBusinesses() {
     return () => unsub();
   }, []);
 
-  if (favorites.length === 0) return null;
-
   return (
     <View style={styles.wrap}>
-      <SectionHeader title="Favorites" subtitle="Quick access to places you love" icon={<Heart size={20} color={colors.error} />} />
+      <SectionHeader
+        title="Favorites"
+        subtitle="Quick access to places you love"
+        icon={<Heart size={26} color={stamp.danger} />}
+        iconEnd
+      />
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.list}>
         {favorites.map((biz) => (
-          <TouchableOpacity key={biz.id} onPress={() => router.push(`/business/${biz.id}`)}>
-            <GlassCard style={styles.card}>
-              <Image
-                source={{ uri: biz.logoUrl || 'https://images.unsplash.com/photo-1560179707-f14e90ef3623?w=100&q=80' }}
-                style={styles.logo}
-              />
+          <TouchableOpacity key={biz.id} style={styles.cardHit} onPress={() => router.push(`/business/${biz.id}`)}>
+            <GlassCard stamp style={styles.card}>
+              {biz.logoUrl ? (
+                <Image source={{ uri: biz.logoUrl }} style={styles.logo} />
+              ) : (
+                <LinearGradient
+                  colors={[stamp.sky, stamp.deep]}
+                  start={{ x: 0.1, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.logo}
+                >
+                  <Text style={styles.mark}>{venueMark(biz.name)}</Text>
+                </LinearGradient>
+              )}
               <Text style={styles.name} numberOfLines={1}>{biz.name}</Text>
               <View style={styles.meta}>
-                <MapPin size={12} color={colors.textMuted} />
+                <MapPin size={16} color={stamp.muted} />
                 <Text style={styles.type}>{biz.type}</Text>
               </View>
             </GlassCard>
           </TouchableOpacity>
         ))}
+        <TouchableOpacity style={styles.find} onPress={() => router.push('/scan')} accessibilityRole="button">
+          <View style={styles.findIcon}>
+            <Plus size={22} color={stamp.deep} />
+          </View>
+          <Text style={styles.findText}>Find places</Text>
+        </TouchableOpacity>
       </ScrollView>
     </View>
   );
@@ -98,12 +116,34 @@ export function FavoriteButton({ businessId }: { businessId: string }) {
 }
 
 const styles = StyleSheet.create({
-  wrap: { paddingHorizontal: spacing.md, marginBottom: spacing.md },
-  list: { gap: spacing.sm, paddingRight: spacing.md },
-  card: { width: 140, alignItems: 'center' },
-  logo: { width: 56, height: 56, borderRadius: 28, marginBottom: spacing.sm },
-  name: { ...typography.body, fontWeight: '700', fontSize: 14 },
-  meta: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
-  type: { ...typography.caption, fontSize: 11 },
+  wrap: { paddingHorizontal: 20, marginTop: 28, marginBottom: spacing.md },
+  list: { flexDirection: 'row', gap: 12, marginTop: 14, paddingRight: 4 },
+  cardHit: { width: 168 },
+  card: { borderRadius: 26, gap: 8, minHeight: 150, width: 168 },
+  logo: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
+  mark: { fontFamily: outfit.extra, fontSize: 20, color: stamp.white },
+  name: { fontFamily: outfit.extra, fontSize: 17, color: stamp.deep },
+  meta: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  type: { fontFamily: outfit.regular, fontSize: 13, color: stamp.muted },
+  find: {
+    width: 168,
+    minHeight: 150,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderColor: stamp.dash,
+    borderRadius: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  findIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: stamp.skyTint,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  findText: { fontFamily: outfit.bold, fontSize: 14, color: stamp.deep },
   favBtn: { padding: spacing.sm },
 });

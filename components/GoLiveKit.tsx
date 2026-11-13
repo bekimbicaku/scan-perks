@@ -52,6 +52,7 @@ export default function GoLiveKit({ businessId, businessName }: Props) {
     : '';
 
   useEffect(() => {
+    if (!businessId) return;
     let cancelled = false;
     getLoyaltySettings(businessId)
       .then((settings) => {
@@ -71,6 +72,7 @@ export default function GoLiveKit({ businessId, businessName }: Props) {
   }, [businessId]);
 
   useEffect(() => {
+    if (!businessId) return;
     return onSnapshot(doc(getDb(), 'businesses', businessId, 'statistics', 'scans'), (snap) => {
       const total = snap.data()?.totalScans;
       setScans(typeof total === 'number' ? total : 0);
@@ -290,11 +292,12 @@ export default function GoLiveKit({ businessId, businessName }: Props) {
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.white,
-    borderRadius: radius.md,
+    borderRadius: 28,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: '#D5E8F4',
     padding: spacing.md,
     gap: spacing.sm,
+    marginHorizontal: 20,
     marginBottom: spacing.md,
   },
   title: { fontSize: 20, fontWeight: '800', color: colors.navy },

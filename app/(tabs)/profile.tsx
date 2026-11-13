@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-nati
 import ScreenContainer from '@/components/ui/ScreenContainer';
 import { signOut, auth, getDb } from '@/lib/firebase';
 import { router, useRootNavigationState } from 'expo-router';
-import { LogOut, Tag, TriangleAlert as AlertTriangle, User, Gift, CreditCard, Cake } from 'lucide-react-native';
+import { LogOut, Tag, TriangleAlert as AlertTriangle, Gift, CreditCard, Cake } from 'lucide-react-native';
 import { collection, query, where, getDocs, onSnapshot, doc, getDoc, updateDoc } from 'firebase/firestore';
 import DeleteAccountModal from '@/components/DeleteAccountModal';
 import RewardsWallet from '@/components/RewardsWallet';
@@ -14,7 +14,8 @@ import BrandLogo from '@/components/ui/BrandLogo';
 import StatCard from '@/components/ui/StatCard';
 import GlassBackground, { GlassCard } from '@/components/ui/GlassBackground';
 import EmptyState from '@/components/ui/EmptyState';
-import { colors, spacing, typography } from '@/theme';
+import { colors, spacing, typography, stamp, outfit, personMark } from '@/theme';
+import { LinearGradient } from 'expo-linear-gradient';
 import GlassInput from '@/components/ui/GlassInput';
 import GlassButton from '@/components/ui/GlassButton';
 import { formatBirthday, parseBirthdayInput } from '@/lib/birthday';
@@ -150,7 +151,7 @@ export default function ProfileScreen() {
 
   if (!navigationState?.key) {
     return (
-      <GlassBackground>
+      <GlassBackground variant="customer">
         <ScreenContainer>
           <Text style={styles.loadingText}>Loading...</Text>
         </ScreenContainer>
@@ -159,20 +160,25 @@ export default function ProfileScreen() {
   }
 
   return (
-    <GlassBackground>
-      <ScreenContainer scroll>
+    <GlassBackground variant="customer">
+      <ScreenContainer scroll contentStyle={styles.tabSpace}>
           <View style={styles.header}>
-            <View style={styles.avatar}>
-              <User size={28} color={colors.primaryDark} />
-            </View>
             <BrandLogo size="sm" />
+            <LinearGradient
+              colors={[stamp.sky, stamp.deep]}
+              start={{ x: 0.1, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.avatar}
+            >
+              <Text style={styles.avatarText}>{personMark(userName)}</Text>
+            </LinearGradient>
             <Text style={styles.title}>{userName}</Text>
             <Text style={styles.subtitle} numberOfLines={1}>{auth.currentUser?.email}</Text>
           </View>
 
           <View style={styles.statsRow}>
-            <StatCard icon={<Tag size={20} color={colors.primaryDark} />} label="Total Points" value={stats.totalPoints} />
-            <StatCard icon={<Gift size={20} color={colors.success} />} label="Active Rewards" value={stats.totalRewards} accent={colors.success} />
+            <StatCard icon={<Tag size={20} color={stamp.deep} />} label="Total Points" value={stats.totalPoints} iconBg={stamp.skyTint} />
+            <StatCard icon={<Gift size={20} color={stamp.mintText} />} label="Active Rewards" value={stats.totalRewards} iconBg={stamp.mintBg} />
           </View>
 
           <View style={styles.section}>
@@ -193,7 +199,7 @@ export default function ProfileScreen() {
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Loyalty Cards</Text>
-              <CreditCard size={20} color={colors.primary} />
+              <CreditCard size={20} color={stamp.deep} />
             </View>
             <LoyaltyCards />
           </View>
@@ -206,7 +212,7 @@ export default function ProfileScreen() {
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Current Offers</Text>
-              <Tag size={20} color={colors.primary} />
+              <Tag size={20} color={stamp.amberText} />
             </View>
 
             {loading ? (
@@ -214,16 +220,18 @@ export default function ProfileScreen() {
             ) : error ? (
               <Text style={styles.errorText}>{error}</Text>
             ) : offers.length === 0 ? (
-              <GlassCard>
+              <GlassCard stamp>
                 <EmptyState
-                  icon={<Gift size={36} color={colors.textMuted} />}
+                  align="left"
+                  iconBg={stamp.amberBg}
+                  icon={<Tag size={22} color={stamp.amberText} />}
                   title="No current offers"
                   description="Scan more businesses to discover their offers!"
                 />
               </GlassCard>
             ) : (
               offers.map((offer) => (
-                <GlassCard key={`${offer.businessId}-${offer.id}`} style={styles.offerCard}>
+                <GlassCard stamp key={`${offer.businessId}-${offer.id}`} style={styles.offerCard}>
                   <Text style={styles.businessName}>{offer.businessName}</Text>
                   {offer.membersOnly !== false ? (
                     <Text style={styles.membersOnly}>Members only</Text>
@@ -241,34 +249,39 @@ export default function ProfileScreen() {
           </View>
 
           <View style={styles.section}>
-            <GlassCard style={styles.birthdayCard}>
-              <Cake size={20} color={colors.warning} />
+            <GlassCard stamp style={styles.birthdayCard}>
+              <View style={styles.birthdayIcon}>
+                <Cake size={20} color={stamp.amberText} />
+              </View>
               <Text style={styles.sectionTitle}>Birthday treat</Text>
               <Text style={styles.birthdayHint}>
                 Add MM-DD so participating venues can send you a birthday reward.
               </Text>
+              <Text style={styles.fieldLabel}>Birthday</Text>
               <GlassInput
+                stamp
                 placeholder="MM-DD"
                 value={birthday}
                 onChangeText={setBirthday}
                 keyboardType="numbers-and-punctuation"
               />
               <GlassButton
+                appearance="stamp"
+                variant="secondary"
                 label={birthdaySaved ? 'Saved' : 'Save birthday'}
                 onPress={handleSaveBirthday}
-                variant="secondary"
               />
             </GlassCard>
           </View>
 
           <View style={styles.accountActions}>
-            <TouchableOpacity style={styles.deleteButton} onPress={() => setShowDeleteModal(true)}>
-              <AlertTriangle size={20} color={colors.error} />
-              <Text style={styles.deleteButtonText}>Delete Account</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
-              <LogOut size={20} color={colors.textMuted} />
+            <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut} accessibilityRole="button">
+              <LogOut size={20} color={stamp.deep} />
               <Text style={styles.signOutButtonText}>Sign Out</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.deleteButton} onPress={() => setShowDeleteModal(true)} accessibilityRole="button">
+              <AlertTriangle size={20} color={stamp.danger} />
+              <Text style={styles.deleteButtonText}>Delete Account</Text>
             </TouchableOpacity>
           </View>
         <DeleteAccountModal visible={showDeleteModal} onClose={() => setShowDeleteModal(false)} />
@@ -280,27 +293,28 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   loadingText: { ...typography.caption, textAlign: 'center', padding: spacing.lg },
-  header: { alignItems: 'center', padding: spacing.lg },
+  tabSpace: { paddingBottom: 120 },
+  header: { alignItems: 'center', paddingHorizontal: 20, paddingTop: 12, paddingBottom: spacing.md },
   avatar: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: colors.glass.backgroundStrong,
-    borderWidth: 1,
-    borderColor: colors.glass.border,
+    width: 84,
+    height: 84,
+    borderRadius: 42,
     alignItems: 'center',
     justifyContent: 'center',
+    marginTop: 14,
     marginBottom: spacing.sm,
   },
-  title: { ...typography.h2, textAlign: 'center', flexShrink: 1 },
-  subtitle: { ...typography.caption, marginTop: 4, textAlign: 'center', maxWidth: '100%' },
+  avatarText: { fontFamily: outfit.extra, fontSize: 32, color: stamp.white },
+  title: { fontFamily: outfit.extra, fontSize: 28, letterSpacing: -0.6, color: stamp.deep, textAlign: 'center' },
+  subtitle: { fontFamily: outfit.regular, fontSize: 15, color: stamp.muted, marginTop: 4, textAlign: 'center', maxWidth: '100%' },
   statsRow: { flexDirection: 'row', paddingHorizontal: spacing.md, gap: spacing.sm, width: '100%' },
   statBox: { flex: 1, alignItems: 'center' },
   statNumber: { fontSize: 26, fontWeight: '700', color: colors.primaryDark },
   statLabel: { ...typography.caption, marginTop: 4 },
   section: { padding: spacing.md },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.sm },
-  sectionTitle: { ...typography.h2, fontSize: 20, marginBottom: spacing.sm },
+  sectionTitle: { fontFamily: outfit.extra, fontSize: 22, letterSpacing: -0.4, color: stamp.deep, marginBottom: spacing.sm },
+  fieldLabel: { fontFamily: outfit.semibold, fontSize: 14, color: stamp.deep },
   referralLabel: { ...typography.caption, marginBottom: 4 },
   referralRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   referralCode: { fontSize: 22, fontWeight: '700', color: colors.primaryDark, letterSpacing: 1 },
@@ -319,23 +333,35 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
+    minHeight: 54,
     padding: spacing.md,
-    borderRadius: 16,
-    backgroundColor: colors.errorLight,
+    borderRadius: stamp.radiusButton,
+    backgroundColor: stamp.white,
+    borderWidth: 1.5,
+    borderColor: stamp.danger,
   },
-  deleteButtonText: { color: colors.error, fontWeight: '600' },
+  deleteButtonText: { color: stamp.danger, fontFamily: outfit.bold, fontSize: 16 },
   signOutButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
+    minHeight: 54,
     padding: spacing.md,
-    borderRadius: 16,
-    backgroundColor: colors.glass.backgroundStrong,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderRadius: stamp.radiusButton,
+    backgroundColor: stamp.white,
+    borderWidth: 1.5,
+    borderColor: stamp.input,
   },
-  signOutButtonText: { color: colors.textMuted, fontWeight: '600' },
+  signOutButtonText: { color: stamp.deep, fontFamily: outfit.bold, fontSize: 16 },
   birthdayCard: { gap: spacing.sm },
-  birthdayHint: { ...typography.caption, lineHeight: 20 },
+  birthdayIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: stamp.amberBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  birthdayHint: { fontFamily: outfit.regular, fontSize: 14, lineHeight: 20, color: stamp.muted },
 });

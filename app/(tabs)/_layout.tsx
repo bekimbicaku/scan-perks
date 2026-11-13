@@ -1,21 +1,12 @@
 import { Tabs, Redirect } from 'expo-router';
 import { Platform, View, ActivityIndicator } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Building2, QrCode, Chrome, User } from 'lucide-react-native';
 import React from 'react';
-import { colors } from '@/theme';
+import { colors, stamp } from '@/theme';
 import { useAuthGate } from '@/hooks/useAuthGate';
-
-const TAB_CONTENT = 56;
+import StampTabBar from '@/components/StampTabBar';
 
 export default function TabLayout() {
-  const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === 'web';
-  const bottomPad = isWeb
-    ? Math.max(insets.bottom, 12)
-    : Platform.OS === 'android'
-      ? Math.max(insets.bottom, 10)
-      : Math.max(insets.bottom, 4);
   const authGate = useAuthGate();
 
   if (authGate.status === 'loading') {
@@ -33,61 +24,34 @@ export default function TabLayout() {
 
   return (
     <Tabs
+      tabBar={(props) => <StampTabBar {...props} />}
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: 'rgba(255, 255, 255, 0.95)',
-          borderTopWidth: 1,
-          borderTopColor: colors.border,
-          paddingTop: 8,
-          paddingBottom: bottomPad,
-          height: TAB_CONTENT + bottomPad,
-          elevation: 8,
-          shadowOpacity: 0.06,
-          width: '100%',
-          maxWidth: '100%',
-          ...(isWeb
-            ? {
-                position: 'relative' as const,
-              }
-            : null),
-        },
-        tabBarActiveTintColor: colors.primaryDark,
-        tabBarInactiveTintColor: colors.textMuted,
-        tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: '600',
-          marginTop: 0,
-          marginBottom: 2,
-        },
-        tabBarItemStyle: {
-          minHeight: 48,
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'transparent',
+          borderTopWidth: 0,
+          elevation: 0,
+          shadowOpacity: 0,
+          height: 104,
         },
         tabBarHideOnKeyboard: true,
         sceneStyle: {
-          backgroundColor: colors.offWhite,
+          backgroundColor: stamp.mist,
           ...(isWeb ? { overflow: 'hidden' as const, flex: 1 } : null),
         },
       }}
     >
-      <Tabs.Screen
-        name="home"
-        options={{
-          href: '/home',
-          title: 'Home',
-          tabBarIcon: ({ color, size, focused }) => (
-            <Chrome size={size} color={color} strokeWidth={focused ? 2.5 : 2} />
-          ),
-        }}
-      />
+      <Tabs.Screen name="home" options={{ href: '/home', title: 'Home' }} />
       <Tabs.Screen
         name="scan"
         options={{
           href: '/scan',
           title: 'Scan',
-          tabBarIcon: ({ color, size, focused }) => (
-            <QrCode size={size} color={color} strokeWidth={focused ? 2.5 : 2} />
-          ),
+          sceneStyle: { backgroundColor: stamp.scanBg },
         }}
       />
       <Tabs.Screen
@@ -95,21 +59,10 @@ export default function TabLayout() {
         options={{
           href: '/business',
           title: 'Business',
-          tabBarIcon: ({ color, size, focused }) => (
-            <Building2 size={size} color={color} strokeWidth={focused ? 2.5 : 2} />
-          ),
+          sceneStyle: { backgroundColor: stamp.mistBusiness },
         }}
       />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          href: '/profile',
-          title: 'Profile',
-          tabBarIcon: ({ color, size, focused }) => (
-            <User size={size} color={color} strokeWidth={focused ? 2.5 : 2} />
-          ),
-        }}
-      />
+      <Tabs.Screen name="profile" options={{ href: '/profile', title: 'Profile' }} />
     </Tabs>
   );
 }

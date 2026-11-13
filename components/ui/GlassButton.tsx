@@ -7,12 +7,13 @@ import {
   ViewStyle,
   StyleProp,
 } from 'react-native';
-import { colors, radius, spacing } from '@/theme';
+import { colors, radius, spacing, stamp, outfit } from '@/theme';
 
 interface GlassButtonProps {
   label: string;
   onPress: () => void;
   variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
+  appearance?: 'glass' | 'stamp';
   loading?: boolean;
   disabled?: boolean;
   icon?: React.ReactNode;
@@ -23,19 +24,27 @@ export default function GlassButton({
   label,
   onPress,
   variant = 'primary',
+  appearance = 'glass',
   loading,
   disabled,
   icon,
   style,
 }: GlassButtonProps) {
+  const stampLook = appearance === 'stamp';
   return (
     <TouchableOpacity
+      accessibilityRole="button"
       style={[
         styles.base,
         variant === 'primary' && styles.primary,
         variant === 'secondary' && styles.secondary,
         variant === 'ghost' && styles.ghost,
         variant === 'danger' && styles.danger,
+        stampLook && styles.stampBase,
+        stampLook && variant === 'primary' && styles.stampPrimary,
+        stampLook && variant === 'secondary' && styles.stampSecondary,
+        stampLook && variant === 'ghost' && styles.stampGhost,
+        stampLook && variant === 'danger' && styles.stampDanger,
         (disabled || loading) && styles.disabled,
         style,
       ]}
@@ -44,7 +53,19 @@ export default function GlassButton({
       activeOpacity={0.85}
     >
       {loading ? (
-        <ActivityIndicator color={variant === 'primary' ? colors.white : colors.primaryDark} />
+        <ActivityIndicator
+          color={
+            stampLook
+              ? variant === 'secondary'
+                ? stamp.white
+                : variant === 'danger'
+                  ? stamp.danger
+                  : stamp.ink
+              : variant === 'primary'
+                ? colors.white
+                : colors.primaryDark
+          }
+        />
       ) : (
         <>
           {icon}
@@ -56,6 +77,11 @@ export default function GlassButton({
               variant === 'secondary' && styles.labelSecondary,
               variant === 'ghost' && styles.labelGhost,
               variant === 'danger' && styles.labelDanger,
+              stampLook && styles.stampLabel,
+              stampLook && variant === 'primary' && styles.stampLabelPrimary,
+              stampLook && variant === 'secondary' && styles.stampLabelSecondary,
+              stampLook && variant === 'ghost' && styles.stampLabelGhost,
+              stampLook && variant === 'danger' && styles.stampLabelDanger,
             ]}
           >
             {label}
@@ -114,4 +140,37 @@ const styles = StyleSheet.create({
   labelSecondary: { color: colors.primaryDark },
   labelGhost: { color: colors.primaryDark },
   labelDanger: { color: colors.error },
+  stampBase: {
+    minHeight: stamp.buttonHeight,
+    borderRadius: stamp.radiusButton,
+    paddingVertical: 0,
+  },
+  stampPrimary: {
+    backgroundColor: stamp.sky,
+    borderColor: stamp.sky,
+    shadowColor: stamp.sky,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.38,
+    shadowRadius: 22,
+    elevation: 4,
+  },
+  stampSecondary: {
+    backgroundColor: stamp.deep,
+    borderColor: stamp.deep,
+  },
+  stampGhost: {
+    backgroundColor: stamp.white,
+    borderColor: stamp.input,
+    borderWidth: 1.5,
+  },
+  stampDanger: {
+    backgroundColor: stamp.white,
+    borderColor: stamp.danger,
+    borderWidth: 1.5,
+  },
+  stampLabel: { fontFamily: outfit.bold, fontWeight: '700' },
+  stampLabelPrimary: { color: stamp.ink },
+  stampLabelSecondary: { color: stamp.white },
+  stampLabelGhost: { color: stamp.deep },
+  stampLabelDanger: { color: stamp.danger },
 });

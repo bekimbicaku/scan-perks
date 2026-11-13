@@ -4,7 +4,9 @@ import { collection, getDocs } from 'firebase/firestore';
 import { Users, UserX, UserCheck } from 'lucide-react-native';
 import { getDb } from '@/lib/firebase';
 import { GlassCard } from '@/components/ui/GlassBackground';
-import { colors, spacing, typography } from '@/theme';
+import { colors, spacing, typography, stamp, outfit } from '@/theme';
+
+const DOTS = ['#0A3D62', '#3E6F90', '#9EC3D6'];
 
 interface CustomerSegmentationProps {
   businessId: string;
@@ -25,6 +27,10 @@ export default function CustomerSegmentation({ businessId }: CustomerSegmentatio
   }, [businessId]);
 
   const loadSegments = async () => {
+    if (!businessId) {
+      setLoading(false);
+      return;
+    }
     try {
       const customersSnap = await getDocs(collection(getDb(), 'businesses', businessId, 'customers'));
       let active = 0;
@@ -74,7 +80,7 @@ export default function CustomerSegmentation({ businessId }: CustomerSegmentatio
 
   if (loading) {
     return (
-      <GlassCard>
+      <GlassCard stamp>
         <Text style={styles.loading}>Loading customer segments...</Text>
       </GlassCard>
     );
@@ -84,9 +90,9 @@ export default function CustomerSegmentation({ businessId }: CustomerSegmentatio
     <View style={styles.container}>
       <Text style={styles.title}>Customer Segments</Text>
       <View style={styles.row}>
-        {segments.map((seg) => (
-          <GlassCard key={seg.label} style={styles.card}>
-            {seg.icon}
+        {segments.map((seg, index) => (
+          <GlassCard stamp key={seg.label} style={styles.card}>
+            <View style={[styles.dot, { backgroundColor: DOTS[index] || stamp.deep }]} />
             <Text style={styles.count}>{seg.count}</Text>
             <Text style={styles.label}>{seg.label}</Text>
           </GlassCard>
@@ -98,10 +104,11 @@ export default function CustomerSegmentation({ businessId }: CustomerSegmentatio
 
 const styles = StyleSheet.create({
   container: { paddingHorizontal: spacing.md, marginBottom: spacing.md },
-  title: { ...typography.h3, marginBottom: spacing.sm },
+  title: { fontFamily: outfit.extra, fontSize: 22, letterSpacing: -0.4, color: stamp.deep, marginBottom: spacing.sm },
   row: { flexDirection: 'row', gap: spacing.sm },
-  card: { flex: 1, alignItems: 'center', minHeight: 100 },
-  count: { fontSize: 24, fontWeight: '700', color: colors.navy, marginTop: spacing.sm },
-  label: { ...typography.caption, fontSize: 11, textAlign: 'center', marginTop: 4 },
+  card: { flex: 1, alignItems: 'center', minHeight: 110 },
+  dot: { width: 10, height: 10, borderRadius: 5 },
+  count: { fontFamily: outfit.extra, fontSize: 24, color: stamp.deep, marginTop: spacing.sm },
+  label: { fontFamily: outfit.regular, fontSize: 11, color: stamp.muted, textAlign: 'center', marginTop: 4 },
   loading: { ...typography.caption, textAlign: 'center' },
 });
