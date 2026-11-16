@@ -48,6 +48,8 @@ export default function AdminBusinessDetailScreen() {
     };
   }, [businessId]);
 
+  const owner = business?.owner;
+
   return (
     <ScreenContainer scroll contentStyle={styles.content}>
       <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
@@ -70,9 +72,14 @@ export default function AdminBusinessDetailScreen() {
 
           <View style={styles.grid}>
             <Detail label="Plan" value={`${business.plan} · ${business.planStatus}`} />
+            <Detail label="Subscription status" value={business.subscriptionStatus || '—'} />
+            <Detail label="Paying (Stripe)" value={business.isPayingStripe ? 'Yes' : 'No'} />
             <Detail label="Active" value={business.isActive ? 'Yes' : 'No'} />
             <Detail label="Customers" value={String(business.customerCount)} />
             <Detail label="Scans" value={String(business.totalScans)} />
+            <Detail label="Scans last 7d" value={String(business.scansLast7d)} />
+            <Detail label="Scans prior 7d" value={String(business.scansPrior7d)} />
+            <Detail label="Last scan" value={formatDate(business.lastScanAt)} />
             <Detail label="Created" value={formatDate(business.createdAt)} />
             <Detail
               label="Trial ends"
@@ -82,8 +89,29 @@ export default function AdminBusinessDetailScreen() {
                   : '—'
               }
             />
-            <Detail label="Owner id" value={business.ownerId} />
             <Detail label="Business id" value={business.id} />
+          </View>
+
+          <Text style={styles.ownerHeading}>Owner</Text>
+          <View style={styles.grid}>
+            <Detail label="Name" value={owner?.name || '—'} />
+            <Detail label="Email" value={owner?.email || business.email || '—'} />
+            <Detail label="UID" value={business.ownerId} />
+            <Detail label="Owner plan status" value={owner?.planStatus || '—'} />
+            <Detail label="Subscribed" value={owner?.subscribed ? 'Yes' : 'No'} />
+            <Detail label="Stripe customer" value={owner?.stripeCustomerId || '—'} />
+            <Detail label="Stripe subscription" value={owner?.stripeSubscriptionId || '—'} />
+            <Detail
+              label="Lifetime paid (stored)"
+              value={
+                owner && owner.lifetimePaidCents > 0
+                  ? `$${(owner.lifetimePaidCents / 100).toFixed(2)}`
+                  : '—'
+              }
+            />
+            <Detail label="Last payment" value={formatDate(owner?.lastPaymentAt || null)} />
+            <Detail label="Last login" value={formatDate(owner?.lastLoginAt || null)} />
+            <Detail label="Last seen" value={formatDate(owner?.lastSeenAt || null)} />
           </View>
 
           <TouchableOpacity style={styles.linkButton} onPress={() => router.push('/admin/users')}>
@@ -145,6 +173,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: stamp.muted,
     marginBottom: 8,
+  },
+  ownerHeading: {
+    fontFamily: outfit.bold,
+    fontSize: 16,
+    color: stamp.deep,
+    marginTop: 8,
   },
   grid: { gap: 12 },
   detail: { gap: 2 },

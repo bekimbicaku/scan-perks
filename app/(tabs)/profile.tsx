@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-nati
 import ScreenContainer from '@/components/ui/ScreenContainer';
 import { signOut, auth, getDb } from '@/lib/firebase';
 import { router, useRootNavigationState } from 'expo-router';
-import { LogOut, Tag, TriangleAlert as AlertTriangle, Gift, CreditCard, Cake } from 'lucide-react-native';
+import { LogOut, Tag, TriangleAlert as AlertTriangle, Gift, CreditCard, Cake, Shield } from 'lucide-react-native';
 import { collection, query, where, getDocs, onSnapshot, doc, getDoc, updateDoc } from 'firebase/firestore';
 import DeleteAccountModal from '@/components/DeleteAccountModal';
 import RewardsWallet from '@/components/RewardsWallet';
@@ -19,6 +19,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import GlassInput from '@/components/ui/GlassInput';
 import GlassButton from '@/components/ui/GlassButton';
 import { formatBirthday, parseBirthdayInput } from '@/lib/birthday';
+import { isPlatformAdmin } from '@/lib/adminAccess';
 
 interface Offer {
   id: string;
@@ -44,6 +45,7 @@ export default function ProfileScreen() {
   const [hasCard, setHasCard] = useState(false);
   const [birthday, setBirthday] = useState('');
   const [birthdaySaved, setBirthdaySaved] = useState(false);
+  const [showAdminEntry, setShowAdminEntry] = useState(false);
   const navigationState = useRootNavigationState();
 
   useEffect(() => {
@@ -53,6 +55,8 @@ export default function ProfileScreen() {
       router.replace('/login');
       return;
     }
+
+    isPlatformAdmin(auth.currentUser).then(setShowAdminEntry).catch(() => setShowAdminEntry(false));
 
     getDoc(doc(getDb(), 'users', auth.currentUser.uid)).then((userDoc) => {
       if (userDoc.exists()) {
@@ -275,6 +279,17 @@ export default function ProfileScreen() {
           </View>
 
           <View style={styles.accountActions}>
+            {showAdminEntry ? (
+              <TouchableOpacity
+                style={styles.adminButton}
+                onPress={() => router.push('/admin')}
+                accessibilityRole="button"
+                accessibilityLabel="Open platform admin"
+              >
+                <Shield size={20} color={stamp.deep} />
+                <Text style={styles.adminButtonText}>Platform admin</Text>
+              </TouchableOpacity>
+            ) : null}
             <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut} accessibilityRole="button">
               <LogOut size={20} color={stamp.deep} />
               <Text style={styles.signOutButtonText}>Sign Out</Text>
@@ -328,6 +343,19 @@ const styles = StyleSheet.create({
   validUntil: { ...typography.caption, fontSize: 12, marginTop: spacing.sm, fontStyle: 'italic' },
   errorText: { color: colors.error, textAlign: 'center' },
   accountActions: { padding: spacing.md, gap: spacing.sm },
+  adminButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    minHeight: 54,
+    padding: spacing.md,
+    borderRadius: stamp.radiusButton,
+    backgroundColor: stamp.skyTint,
+    borderWidth: 1.5,
+    borderColor: stamp.sky,
+  },
+  adminButtonText: { color: stamp.deep, fontFamily: outfit.bold, fontSize: 16 },
   deleteButton: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -260,10 +260,36 @@ app.post("/webhook", async (req, res) => {
         break;
 
       case "customer.subscription.created":
-      case "invoice.paid":
-      case "invoice.payment_succeeded":
         // Activation is handled on checkout.session.completed; acknowledge these events.
         break;
+
+      case "invoice.paid":
+      case "invoice.payment_succeeded": {
+        // Persist paid invoice amounts so admin can show real all-time revenue from Firestore.
+        const invoice = event.data.object;
+        const customerId = invoice.customer;
+        const amountPaid = typeof invoice.amount_paid === 'number' ? invoice.amount_paid : 0;
+        if (customerId && amountPaid > 0) {
+          const usersSnapshot = await admin
+            .firestore()
+            .collection("users")
+            .where("stripeCustomerId", "==", customerId)
+            .limit(1)
+            .get();
+
+          if (!usersSnapshot.empty) {
+            await usersSnapshot.docs[0].ref.set(
+              {
+                lifetimePaidCents: admin.firestore.FieldValue.increment(amountPaid),
+                lastInvoicePaidAt: admin.firestore.FieldValue.serverTimestamp(),
+                lastInvoiceId: invoice.id || null,
+              },
+              { merge: true }
+            );
+          }
+        }
+        break;
+      }
 
       case "customer.subscription.deleted": {
         const subscription = event.data.object;
@@ -647,6 +673,80 @@ exports.platformAdmin = functions
         const action = req.body && req.body.action;
         const userId = req.body && typeof req.body.userId === 'string' ? req.body.userId.trim() : '';
 
+        if (action === 'revenue') {
+          if (!getStripeSecretKey()) {
+            return res.status(503).json({
+              error: 'Stripe secret not configured on functions',
+            });
+          }
+
+          let mrrCents = 0;
+          let activeSubscriptions = 0;
+          let startingAfterSub = null;
+          for (;;) {
+            const subParams = { status: 'active', limit: 100 };
+            if (startingAfterSub) subParams.starting_after = startingAfterSub;
+            const page = await stripe.subscriptions.list(subParams);
+            for (const sub of page.data) {
+              activeSubscriptions += 1;
+              for (const item of sub.items.data) {
+                const unit = item.price && typeof item.price.unit_amount === 'number'
+                  ? item.price.unit_amount
+                  : 0;
+                const qty = typeof item.quantity === 'number' ? item.quantity : 1;
+                const interval = item.price && item.price.recurring
+                  ? item.price.recurring.interval
+                  : 'month';
+                const intervalCount =
+                  item.price && item.price.recurring && item.price.recurring.interval_count
+                    ? item.price.recurring.interval_count
+                    : 1;
+                let monthly = unit * qty;
+                if (interval === 'year') {
+                  monthly = Math.round((unit * qty) / (12 * intervalCount));
+                } else if (interval === 'week') {
+                  monthly = Math.round((unit * qty * 52) / (12 * intervalCount));
+                } else if (intervalCount > 1) {
+                  monthly = Math.round((unit * qty) / intervalCount);
+                }
+                mrrCents += monthly;
+              }
+            }
+            if (!page.has_more || page.data.length === 0) break;
+            startingAfterSub = page.data[page.data.length - 1].id;
+          }
+
+          let allTimePaidCents = 0;
+          let invoicesScanned = 0;
+          let startingAfterInv = null;
+          for (;;) {
+            const invParams = { status: 'paid', limit: 100 };
+            if (startingAfterInv) invParams.starting_after = startingAfterInv;
+            const page = await stripe.invoices.list(invParams);
+            for (const invoice of page.data) {
+              invoicesScanned += 1;
+              if (typeof invoice.amount_paid === 'number') {
+                allTimePaidCents += invoice.amount_paid;
+              }
+            }
+            if (!page.has_more || page.data.length === 0) break;
+            startingAfterInv = page.data[page.data.length - 1].id;
+          }
+
+          return res.json({
+            ok: true,
+            action: 'revenue',
+            currency: 'usd',
+            mrrCents,
+            mrrUsd: mrrCents / 100,
+            activeSubscriptions,
+            allTimePaidCents,
+            allTimePaidUsd: allTimePaidCents / 100,
+            invoicesScanned,
+            source: 'stripe',
+          });
+        }
+
         if (!userId) {
           return res.status(400).json({ error: 'userId is required' });
         }
@@ -753,7 +853,7 @@ exports.platformAdmin = functions
           });
         }
 
-        return res.status(400).json({ error: 'Unknown action. Use ban, unban, or delete.' });
+        return res.status(400).json({ error: 'Unknown action. Use ban, unban, delete, or revenue.' });
       } catch (error) {
         console.error('[platformAdmin] error:', error);
         return res.status(500).json({
