@@ -104,7 +104,7 @@ export default function AdminBusinessDetailScreen() {
     <ScreenContainer scroll contentStyle={styles.content}>
       <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
         <ArrowLeft size={18} color={stamp.deep} />
-        <Text style={styles.backText}>Back</Text>
+        <Text style={styles.backText}>Dashboard</Text>
       </TouchableOpacity>
 
       {loading ? (
@@ -294,42 +294,42 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: stamp.white,
-    borderRadius: 20,
+    borderRadius: 22,
     borderWidth: 1,
     borderColor: stamp.line,
     padding: 18,
-    gap: 10,
+    gap: 12,
   },
   title: {
     fontFamily: outfit.extra,
-    fontSize: 26,
-    color: stamp.deep,
+    fontSize: 28,
+    color: stamp.ink,
   },
   sub: {
     fontFamily: outfit.regular,
     fontSize: 14,
     color: stamp.muted,
-    marginBottom: 8,
+    marginBottom: 4,
   },
   ownerHeading: {
     fontFamily: outfit.bold,
     fontSize: 16,
-    color: stamp.deep,
-    marginTop: 8,
+    color: stamp.ink,
+    marginTop: 10,
   },
   grid: { gap: 12 },
   detail: { gap: 2 },
   detailLabel: {
     fontFamily: outfit.medium,
-    fontSize: 12,
-    color: stamp.dash,
+    fontSize: 11,
+    color: stamp.sky,
     textTransform: 'uppercase',
-    letterSpacing: 0.4,
+    letterSpacing: 0.5,
   },
   detailValue: {
     fontFamily: outfit.semibold,
     fontSize: 15,
-    color: stamp.deep,
+    color: stamp.ink,
   },
   fieldLabel: {
     fontFamily: outfit.medium,
@@ -340,12 +340,12 @@ const styles = StyleSheet.create({
   input: {
     borderWidth: 1,
     borderColor: stamp.line,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     fontFamily: outfit.regular,
     fontSize: 15,
-    color: stamp.deep,
+    color: stamp.ink,
     backgroundColor: stamp.mist,
   },
   hint: {
@@ -358,8 +358,8 @@ const styles = StyleSheet.create({
     marginTop: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 48,
-    borderRadius: 14,
+    minHeight: 50,
+    borderRadius: stamp.radiusButton,
     backgroundColor: stamp.skyTint,
   },
   disabled: { opacity: 0.45 },
@@ -369,7 +369,7 @@ const styles = StyleSheet.create({
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+    backgroundColor: 'rgba(6, 42, 68, 0.48)',
     justifyContent: 'center',
     padding: 24,
   },

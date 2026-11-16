@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -10,9 +10,13 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { router } from 'expo-router';
-import { ArrowLeft } from 'lucide-react-native';
+import { ArrowLeft, Mail, Megaphone } from 'lucide-react-native';
 import ScreenContainer from '@/components/ui/ScreenContainer';
-import { sendAdminPromo } from '@/lib/adminApi';
+import {
+  fetchAdminEmailStatus,
+  sendAdminPromo,
+  type AdminEmailStatus,
+} from '@/lib/adminApi';
 import { stamp, outfit } from '@/theme';
 
 type Audience = 'all' | 'owners' | 'customers';
@@ -28,10 +32,28 @@ export default function AdminPromoScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);
+  const [emailStatus, setEmailStatus] = useState<AdminEmailStatus | null>(null);
+  const [emailStatusError, setEmailStatusError] = useState<string | null>(null);
+
+  const loadEmailStatus = useCallback(async () => {
+    setEmailStatusError(null);
+    try {
+      setEmailStatus(await fetchAdminEmailStatus());
+    } catch (err) {
+      setEmailStatus(null);
+      setEmailStatusError(err instanceof Error ? err.message : 'Could not check email config');
+    }
+  }, []);
+
+  useEffect(() => {
+    loadEmailStatus();
+  }, [loadEmailStatus]);
 
   const channels: Array<'push' | 'email'> = [];
   if (push) channels.push('push');
   if (email) channels.push('email');
+
+  const emailReady = emailStatus?.configured === true;
 
   const openConfirm = () => {
     setError(null);
@@ -42,6 +64,12 @@ export default function AdminPromoScreen() {
     }
     if (channels.length === 0) {
       setError('Pick at least one channel');
+      return;
+    }
+    if (email && !emailReady) {
+      setError(
+        'Email is not configured on Cloud Functions yet. Add RESEND_API_KEY and RESEND_FROM, then redeploy platformAdmin.'
+      );
       return;
     }
     if (audience === 'customers' && !businessId.trim()) {
@@ -79,14 +107,48 @@ export default function AdminPromoScreen() {
     <ScreenContainer scroll contentStyle={styles.content}>
       <TouchableOpacity style={styles.backButton} onPress={() => router.replace('/admin')}>
         <ArrowLeft size={18} color={stamp.deep} />
-        <Text style={styles.backText}>Back</Text>
+        <Text style={styles.backText}>Dashboard</Text>
       </TouchableOpacity>
 
-      <Text style={styles.title}>Promo message</Text>
-      <Text style={styles.hint}>
-        Uses existing Expo push (`expoPushToken`) and Resend email paths. Confirm before send. Max 500
-        recipients per send.
-      </Text>
+      <View style={styles.hero}>
+        <View style={styles.heroIcon}>
+          <Megaphone size={22} color={stamp.deep} />
+        </View>
+        <View style={styles.heroCopy}>
+          <Text style={styles.kicker}>Messaging</Text>
+          <Text style={styles.title}>Promo</Text>
+          <Text style={styles.hint}>
+            Expo push and/or Resend email. Confirm before send. Max 500 recipients.
+          </Text>
+        </View>
+      </View>
+
+      <View style={[styles.statusCard, emailReady ? styles.statusOk : styles.statusWarn]}>
+        <Mail size={18} color={emailReady ? stamp.mintText : stamp.amberText} />
+        <View style={styles.statusCopy}>
+          <Text style={styles.statusTitle}>
+            {emailReady ? 'Resend email ready' : 'Resend email not configured'}
+          </Text>
+          {emailReady ? (
+            <Text style={styles.statusBody}>Email channel can send once you select it below.</Text>
+          ) : (
+            <Text style={styles.statusBody}>
+              Add secrets <Text style={styles.mono}>RESEND_API_KEY</Text> and{' '}
+              <Text style={styles.mono}>RESEND_FROM</Text> on Cloud Functions
+              {emailStatus?.missing?.length
+                ? ` (missing: ${emailStatus.missing.join(', ')})`
+                : ''}
+              , verify sender in Resend
+              {emailStatus?.recommendedFrom ? ` (${emailStatus.recommendedFrom})` : ''}, redeploy
+              `platformAdmin`. Push still works without Resend.
+            </Text>
+          )}
+          {emailStatusError ? <Text style={styles.statusError}>{emailStatusError}</Text> : null}
+          <TouchableOpacity onPress={loadEmailStatus} style={styles.refreshLink}>
+            <Text style={styles.refreshLinkText}>Refresh email status</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
 
       <Text style={styles.fieldLabel}>Title</Text>
       <TextInput
@@ -146,10 +208,12 @@ export default function AdminPromoScreen() {
           <Text style={[styles.chipText, push && styles.chipTextOn]}>In-app push</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.chip, email && styles.chipOn]}
+          style={[styles.chip, email && styles.chipOn, email && !emailReady && styles.chipWarn]}
           onPress={() => setEmail((v) => !v)}
         >
-          <Text style={[styles.chipText, email && styles.chipTextOn]}>Email</Text>
+          <Text style={[styles.chipText, email && styles.chipTextOn]}>
+            Email{emailReady ? '' : ' (needs setup)'}
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -209,16 +273,90 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: stamp.deep,
   },
+  hero: {
+    flexDirection: 'row',
+    gap: 14,
+    alignItems: 'flex-start',
+    backgroundColor: stamp.white,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: stamp.line,
+    padding: 16,
+    marginTop: 4,
+  },
+  heroIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 16,
+    backgroundColor: stamp.skyTint,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroCopy: { flex: 1, minWidth: 0, gap: 2 },
+  kicker: {
+    fontFamily: outfit.semibold,
+    fontSize: 12,
+    color: stamp.sky,
+    textTransform: 'uppercase',
+    letterSpacing: 0.7,
+  },
   title: {
     fontFamily: outfit.extra,
     fontSize: 28,
-    color: stamp.deep,
+    color: stamp.ink,
   },
   hint: {
     fontFamily: outfit.regular,
     fontSize: 13,
     color: stamp.muted,
     lineHeight: 18,
+    marginTop: 2,
+  },
+  statusCard: {
+    flexDirection: 'row',
+    gap: 12,
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 14,
+    alignItems: 'flex-start',
+  },
+  statusWarn: {
+    backgroundColor: stamp.amberBg,
+    borderColor: '#F5D39A',
+  },
+  statusOk: {
+    backgroundColor: stamp.mintBg,
+    borderColor: '#A7E8C8',
+  },
+  statusCopy: { flex: 1, minWidth: 0, gap: 4 },
+  statusTitle: {
+    fontFamily: outfit.semibold,
+    fontSize: 14,
+    color: stamp.ink,
+  },
+  statusBody: {
+    fontFamily: outfit.regular,
+    fontSize: 13,
+    color: stamp.muted,
+    lineHeight: 18,
+  },
+  statusError: {
+    fontFamily: outfit.medium,
+    fontSize: 12,
+    color: stamp.danger,
+  },
+  mono: {
+    fontFamily: outfit.semibold,
+    color: stamp.deep,
+  },
+  refreshLink: {
+    alignSelf: 'flex-start',
+    marginTop: 4,
+  },
+  refreshLinkText: {
+    fontFamily: outfit.semibold,
+    fontSize: 13,
+    color: stamp.deep,
   },
   fieldLabel: {
     fontFamily: outfit.medium,
@@ -229,12 +367,12 @@ const styles = StyleSheet.create({
   input: {
     borderWidth: 1,
     borderColor: stamp.line,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     fontFamily: outfit.regular,
     fontSize: 15,
-    color: stamp.deep,
+    color: stamp.ink,
     backgroundColor: stamp.white,
   },
   bodyInput: {
@@ -249,14 +387,18 @@ const styles = StyleSheet.create({
   chip: {
     borderWidth: 1,
     borderColor: stamp.line,
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    borderRadius: stamp.radiusPill,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
     backgroundColor: stamp.white,
   },
   chipOn: {
     backgroundColor: stamp.skyTint,
     borderColor: stamp.sky,
+  },
+  chipWarn: {
+    backgroundColor: stamp.amberBg,
+    borderColor: stamp.amber,
   },
   chipText: {
     fontFamily: outfit.medium,
@@ -278,8 +420,8 @@ const styles = StyleSheet.create({
   },
   sendButton: {
     marginTop: 8,
-    minHeight: 50,
-    borderRadius: 14,
+    minHeight: stamp.buttonHeight,
+    borderRadius: stamp.radiusButton,
     backgroundColor: stamp.deep,
     alignItems: 'center',
     justifyContent: 'center',
@@ -291,20 +433,20 @@ const styles = StyleSheet.create({
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+    backgroundColor: 'rgba(6, 42, 68, 0.48)',
     justifyContent: 'center',
     padding: 24,
   },
   modalCard: {
     backgroundColor: stamp.white,
-    borderRadius: 18,
+    borderRadius: 20,
     padding: 18,
     gap: 10,
   },
   modalTitle: {
     fontFamily: outfit.bold,
     fontSize: 18,
-    color: stamp.deep,
+    color: stamp.ink,
   },
   modalBody: {
     fontFamily: outfit.regular,
@@ -320,7 +462,7 @@ const styles = StyleSheet.create({
   modalCancel: {
     flex: 1,
     minHeight: 46,
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: stamp.line,
     alignItems: 'center',
@@ -333,7 +475,7 @@ const styles = StyleSheet.create({
   modalConfirm: {
     flex: 1,
     minHeight: 46,
-    borderRadius: 12,
+    borderRadius: 14,
     backgroundColor: stamp.deep,
     alignItems: 'center',
     justifyContent: 'center',

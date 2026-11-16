@@ -650,18 +650,50 @@ async function deactivateOwnedBusiness(userId) {
 }
 
 function getResendConfig() {
-  let legacy = {};
+  let reengage = {};
+  let resend = {};
   try {
-    legacy = functions.config().reengage || {};
+    const cfg = functions.config() || {};
+    reengage = cfg.reengage || {};
+    resend = cfg.resend || {};
   } catch (error) {
-    legacy = {};
+    reengage = {};
+    resend = {};
   }
+
+  // Prefer env (Secret Manager / Cloud Run env), then functions.config().resend.*,
+  // then legacy reengage.* used by the scheduled reengage job.
   return {
-    resendKey: process.env.RESEND_API_KEY || legacy.resend_api_key || '',
-    resendFrom: process.env.RESEND_FROM || legacy.resend_from || '',
-    appName: process.env.APP_NAME || legacy.app_name || 'Scan Perks',
-    appUrl: (process.env.APP_URL || legacy.app_url || 'https://app.scan-perks.com').replace(/\/$/, ''),
+    resendKey:
+      process.env.RESEND_API_KEY ||
+      resend.api_key ||
+      resend.key ||
+      reengage.resend_api_key ||
+      '',
+    resendFrom:
+      process.env.RESEND_FROM ||
+      resend.from ||
+      reengage.resend_from ||
+      '',
+    appName: process.env.APP_NAME || reengage.app_name || 'Scan Perks',
+    appUrl: (process.env.APP_URL || reengage.app_url || 'https://app.scan-perks.com').replace(
+      /\/$/,
+      ''
+    ),
   };
+}
+
+function resendEmailReady(config) {
+  return Boolean(config && config.resendKey && config.resendFrom);
+}
+
+function resendSetupError() {
+  return (
+    'Email channel requires RESEND_API_KEY and RESEND_FROM on Cloud Functions. ' +
+    'Set via `firebase functions:config:set reengage.resend_api_key=… reengage.resend_from=…` ' +
+    '(or `resend.api_key` / `resend.from`), or env vars with those names, then redeploy platformAdmin. ' +
+    'Verify the from-address domain in Resend (recommended: ScanPerks <hello@scan-perks.com>).'
+  );
 }
 
 async function sendExpoPushToken(token, title, body, data) {
@@ -882,8 +914,8 @@ async function sendAdminPromo({
   }
 
   const config = getResendConfig();
-  if (wantEmail && (!config.resendKey || !config.resendFrom)) {
-    throw new Error('Email channel requires RESEND_API_KEY and RESEND_FROM');
+  if (wantEmail && !resendEmailReady(config)) {
+    throw new Error(resendSetupError());
   }
 
   const usersSnap = await admin.firestore().collection('users').get();
@@ -1102,6 +1134,22 @@ exports.platformAdmin = functions
           });
         }
 
+        if (action === 'emailStatus') {
+          const config = getResendConfig();
+          return res.json({
+            ok: true,
+            action: 'emailStatus',
+            configured: resendEmailReady(config),
+            hasApiKey: Boolean(config.resendKey),
+            hasFrom: Boolean(config.resendFrom),
+            recommendedFrom: 'ScanPerks <hello@scan-perks.com>',
+            missing: [
+              !config.resendKey ? 'RESEND_API_KEY' : null,
+              !config.resendFrom ? 'RESEND_FROM' : null,
+            ].filter(Boolean),
+          });
+        }
+
         if (action === 'sendPromo') {
           if (req.body?.confirm !== true) {
             return res.status(400).json({
@@ -1236,7 +1284,8 @@ exports.platformAdmin = functions
         }
 
         return res.status(400).json({
-          error: 'Unknown action. Use ban, unban, delete, revenue, setPriceOverride, or sendPromo.',
+          error:
+            'Unknown action. Use ban, unban, delete, revenue, setPriceOverride, sendPromo, or emailStatus.',
         });
       } catch (error) {
         console.error('[platformAdmin] error:', error);

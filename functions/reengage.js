@@ -7,8 +7,11 @@ const MAX_SENDS = 500;
 
 function readConfig() {
   let legacy = {};
+  let resend = {};
   try {
-    legacy = functions.config && functions.config().reengage ? functions.config().reengage : {};
+    const cfg = functions.config && functions.config() ? functions.config() : {};
+    legacy = cfg.reengage || {};
+    resend = cfg.resend || {};
   } catch (error) {
     console.warn('reengage functions.config unavailable', error);
   }
@@ -33,8 +36,14 @@ function readConfig() {
     ctaUrl: `${appUrl}${ctaPath.startsWith('/') || ctaPath === '' ? ctaPath : `/${ctaPath}`}`,
     title,
     body,
-    resendKey: process.env.RESEND_API_KEY || legacy.resend_api_key || '',
-    resendFrom: process.env.RESEND_FROM || legacy.resend_from || '',
+    resendKey:
+      process.env.RESEND_API_KEY ||
+      resend.api_key ||
+      resend.key ||
+      legacy.resend_api_key ||
+      '',
+    resendFrom:
+      process.env.RESEND_FROM || resend.from || legacy.resend_from || '',
   };
 }
 

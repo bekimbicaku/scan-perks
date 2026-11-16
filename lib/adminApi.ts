@@ -9,7 +9,8 @@ type AdminAction =
   | 'delete'
   | 'revenue'
   | 'setPriceOverride'
-  | 'sendPromo';
+  | 'sendPromo'
+  | 'emailStatus';
 
 export type AdminActionResult = {
   ok: boolean;
@@ -68,6 +69,17 @@ export type AdminPromoResult = {
   emailSent: number;
   emailFailed: number;
   truncated: boolean;
+  error?: string;
+};
+
+export type AdminEmailStatus = {
+  ok: boolean;
+  action: 'emailStatus';
+  configured: boolean;
+  hasApiKey: boolean;
+  hasFrom: boolean;
+  recommendedFrom: string;
+  missing: string[];
   error?: string;
 };
 
@@ -155,4 +167,9 @@ export function sendAdminPromo(input: {
     audience: input.audience,
     businessId: input.businessId || undefined,
   });
+}
+
+/** Whether Resend env/config is present on platformAdmin (never returns secret values). */
+export function fetchAdminEmailStatus(): Promise<AdminEmailStatus> {
+  return postAdmin<AdminEmailStatus>({ action: 'emailStatus' });
 }

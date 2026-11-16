@@ -101,6 +101,7 @@ export default function AdminUsersScreen() {
           <ArrowLeft size={18} color={stamp.deep} />
           <Text style={styles.backText}>Dashboard</Text>
         </TouchableOpacity>
+        <Text style={styles.kicker}>Moderation</Text>
         <Text style={styles.title}>Users</Text>
         <Text style={styles.subtitle}>
           Ban disables sign-in and deactivates an owned venue. Delete removes the Auth user and
@@ -228,23 +229,30 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     gap: 12,
   },
-  header: { gap: 6, marginBottom: 4 },
+  header: { gap: 4, marginBottom: 6 },
   backButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     alignSelf: 'flex-start',
-    marginBottom: 4,
+    marginBottom: 6,
   },
   backText: {
     fontFamily: outfit.medium,
     fontSize: 14,
     color: stamp.deep,
   },
+  kicker: {
+    fontFamily: outfit.semibold,
+    fontSize: 12,
+    color: stamp.sky,
+    textTransform: 'uppercase',
+    letterSpacing: 0.7,
+  },
   title: {
     fontFamily: outfit.extra,
-    fontSize: 28,
-    color: stamp.deep,
+    fontSize: 30,
+    color: stamp.ink,
   },
   subtitle: {
     fontFamily: outfit.regular,
@@ -259,15 +267,15 @@ const styles = StyleSheet.create({
     backgroundColor: stamp.white,
     borderWidth: 1,
     borderColor: stamp.line,
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    minHeight: 46,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    minHeight: 48,
   },
   searchInput: {
     flex: 1,
     fontFamily: outfit.regular,
     fontSize: 15,
-    color: stamp.deep,
+    color: stamp.ink,
     paddingVertical: 10,
   },
   center: { paddingVertical: 32, alignItems: 'center' },
@@ -283,17 +291,17 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: stamp.white,
-    borderRadius: 18,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: stamp.line,
-    padding: 14,
+    padding: 16,
     gap: 12,
   },
-  cardMain: { gap: 2 },
+  cardMain: { gap: 3 },
   name: {
     fontFamily: outfit.semibold,
     fontSize: 16,
-    color: stamp.deep,
+    color: stamp.ink,
   },
   email: {
     fontFamily: outfit.regular,

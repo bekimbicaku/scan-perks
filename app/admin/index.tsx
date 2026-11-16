@@ -130,13 +130,14 @@ export default function AdminDashboardScreen() {
       contentStyle={styles.content}
     >
       <View style={styles.header}>
-        <View>
+        <View style={styles.headerCopy}>
           <Text style={styles.kicker}>ScanPerks</Text>
-          <Text style={styles.title}>Platform admin</Text>
+          <Text style={styles.title}>Admin</Text>
+          <Text style={styles.subtitle}>Venues, revenue, and messaging</Text>
         </View>
         <View style={styles.navRow}>
-          <TouchableOpacity style={styles.navButton} onPress={() => router.push('/admin/promo')}>
-            <Text style={styles.navButtonText}>Promo</Text>
+          <TouchableOpacity style={[styles.navButton, styles.navButtonPrimary]} onPress={() => router.push('/admin/promo')}>
+            <Text style={[styles.navButtonText, styles.navButtonTextPrimary]}>Promo</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.navButton} onPress={() => router.push('/admin/users')}>
             <Users size={18} color={stamp.deep} />
@@ -155,6 +156,7 @@ export default function AdminDashboardScreen() {
 
       {metrics ? (
         <>
+          <Text style={styles.sectionLabel}>Overview</Text>
           <View style={styles.statsRow}>
             <StatCard
               icon={<Building2 size={20} color={stamp.deep} />}
@@ -286,7 +288,7 @@ export default function AdminDashboardScreen() {
             </>
           ) : null}
 
-          <Text style={styles.sectionTitle}>Businesses</Text>
+          <Text style={styles.sectionTitle}>All businesses</Text>
           <View style={styles.searchWrap}>
             <Search size={18} color={stamp.input} />
             <TextInput
@@ -333,31 +335,45 @@ export default function AdminDashboardScreen() {
 const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 20,
-    paddingTop: 16,
+    paddingTop: 18,
     gap: 12,
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    gap: 12,
+    marginBottom: 6,
+  },
+  headerCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
   },
   kicker: {
     fontFamily: outfit.semibold,
-    fontSize: 13,
+    fontSize: 12,
     color: stamp.sky,
     textTransform: 'uppercase',
-    letterSpacing: 0.6,
+    letterSpacing: 0.7,
   },
   title: {
     fontFamily: outfit.extra,
-    fontSize: 28,
-    color: stamp.deep,
+    fontSize: 32,
+    lineHeight: 36,
+    color: stamp.ink,
+  },
+  subtitle: {
+    fontFamily: outfit.regular,
+    fontSize: 14,
+    color: stamp.muted,
+    marginTop: 2,
   },
   navRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    paddingTop: 4,
   },
   navButton: {
     flexDirection: 'row',
@@ -370,10 +386,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
+  navButtonPrimary: {
+    backgroundColor: stamp.deep,
+    borderColor: stamp.deep,
+  },
   navButtonText: {
     fontFamily: outfit.semibold,
     fontSize: 14,
     color: stamp.deep,
+  },
+  navButtonTextPrimary: {
+    color: stamp.white,
   },
   center: {
     paddingVertical: 40,
@@ -384,38 +407,48 @@ const styles = StyleSheet.create({
     color: stamp.danger,
     fontSize: 14,
   },
+  sectionLabel: {
+    fontFamily: outfit.semibold,
+    fontSize: 12,
+    color: stamp.sky,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    marginTop: 4,
+  },
   statsRow: {
     flexDirection: 'row',
     gap: 10,
   },
   metaBlock: {
     backgroundColor: stamp.white,
-    borderRadius: 16,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: stamp.line,
-    padding: 12,
-    gap: 6,
+    padding: 16,
+    gap: 8,
   },
   metaTitle: {
-    fontFamily: outfit.semibold,
-    fontSize: 14,
-    color: stamp.deep,
+    fontFamily: outfit.bold,
+    fontSize: 15,
+    color: stamp.ink,
   },
   metaText: {
     fontFamily: outfit.regular,
     fontSize: 13,
+    lineHeight: 19,
     color: stamp.muted,
   },
   metaMuted: {
     fontFamily: outfit.regular,
     fontSize: 12,
+    lineHeight: 17,
     color: stamp.dash,
   },
   sectionTitle: {
     fontFamily: outfit.bold,
     fontSize: 18,
-    color: stamp.deep,
-    marginTop: 8,
+    color: stamp.ink,
+    marginTop: 10,
   },
   searchWrap: {
     flexDirection: 'row',
@@ -424,15 +457,15 @@ const styles = StyleSheet.create({
     backgroundColor: stamp.white,
     borderWidth: 1,
     borderColor: stamp.line,
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    minHeight: 46,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    minHeight: 48,
   },
   searchInput: {
     flex: 1,
     fontFamily: outfit.regular,
     fontSize: 15,
-    color: stamp.deep,
+    color: stamp.ink,
     paddingVertical: 10,
   },
   empty: {
@@ -444,17 +477,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: stamp.white,
-    borderRadius: 18,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: stamp.line,
-    padding: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
     gap: 8,
   },
-  rowMain: { flex: 1, minWidth: 0, gap: 2 },
+  rowMain: { flex: 1, minWidth: 0, gap: 3 },
   rowTitle: {
     fontFamily: outfit.semibold,
     fontSize: 16,
-    color: stamp.deep,
+    color: stamp.ink,
   },
   rowSub: {
     fontFamily: outfit.medium,
@@ -464,8 +498,8 @@ const styles = StyleSheet.create({
   rowMeta: {
     fontFamily: outfit.regular,
     fontSize: 12,
+    lineHeight: 17,
     color: stamp.muted,
-    marginTop: 2,
   },
   chevron: {
     fontSize: 24,
