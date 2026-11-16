@@ -557,3 +557,208 @@ exports.verifyCheckoutSession = functions
 
 const reengage = require('./reengage');
 exports.reengageInactiveUsers = reengage.reengageInactiveUsers;
+
+const DEFAULT_ADMIN_EMAILS = ['bekimbicaku4@gmail.com'];
+
+function getPlatformAdminEmails() {
+  const fromEnv = String(
+    process.env.ADMIN_EMAILS ||
+      process.env.EXPO_PUBLIC_ADMIN_EMAILS ||
+      (functions.config().admin && functions.config().admin.emails) ||
+      ''
+  )
+    .split(',')
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean);
+
+  return [...new Set([...DEFAULT_ADMIN_EMAILS, ...fromEnv])];
+}
+
+function isPlatformAdminToken(decoded) {
+  if (decoded.admin === true) return true;
+  const email = decoded.email ? String(decoded.email).trim().toLowerCase() : '';
+  return email && getPlatformAdminEmails().includes(email);
+}
+
+async function deleteQueryInBatches(queryRef) {
+  const snap = await queryRef.get();
+  if (snap.empty) return 0;
+
+  let deleted = 0;
+  let batch = admin.firestore().batch();
+  let ops = 0;
+
+  for (const docSnap of snap.docs) {
+    batch.delete(docSnap.ref);
+    ops += 1;
+    deleted += 1;
+    if (ops >= 400) {
+      await batch.commit();
+      batch = admin.firestore().batch();
+      ops = 0;
+    }
+  }
+
+  if (ops > 0) {
+    await batch.commit();
+  }
+
+  return deleted;
+}
+
+async function deactivateOwnedBusiness(userId) {
+  const businessRef = admin.firestore().collection('businesses').doc(userId);
+  const businessSnap = await businessRef.get();
+  if (!businessSnap.exists) return false;
+
+  await businessRef.set(
+    {
+      isActive: false,
+      deactivatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      deactivatedReason: 'platform_admin',
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    },
+    { merge: true }
+  );
+  return true;
+}
+
+exports.platformAdmin = functions
+  .region('europe-west1')
+  .https.onRequest(async (req, res) => {
+    return cors(req, res, async () => {
+      if (req.method !== 'POST') {
+        return res.status(405).json({ error: 'Method not allowed' });
+      }
+
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+
+      try {
+        const token = authHeader.split('Bearer ')[1];
+        const decoded = await admin.auth().verifyIdToken(token);
+
+        if (!isPlatformAdminToken(decoded)) {
+          return res.status(403).json({ error: 'Platform admin access required' });
+        }
+
+        const action = req.body && req.body.action;
+        const userId = req.body && typeof req.body.userId === 'string' ? req.body.userId.trim() : '';
+
+        if (!userId) {
+          return res.status(400).json({ error: 'userId is required' });
+        }
+
+        if (userId === decoded.uid) {
+          return res.status(400).json({ error: 'You cannot ban or delete your own admin account' });
+        }
+
+        if (action === 'ban') {
+          await admin.firestore().collection('users').doc(userId).set(
+            {
+              banned: true,
+              bannedAt: admin.firestore.FieldValue.serverTimestamp(),
+              bannedBy: decoded.uid,
+              updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            },
+            { merge: true }
+          );
+
+          let authDisabled = false;
+          try {
+            await admin.auth().updateUser(userId, { disabled: true });
+            authDisabled = true;
+          } catch (authError) {
+            if (authError.code !== 'auth/user-not-found') {
+              throw authError;
+            }
+          }
+
+          const businessDeactivated = await deactivateOwnedBusiness(userId);
+
+          return res.json({
+            ok: true,
+            action: 'ban',
+            userId,
+            authDisabled,
+            businessDeactivated,
+          });
+        }
+
+        if (action === 'unban') {
+          await admin.firestore().collection('users').doc(userId).set(
+            {
+              banned: false,
+              unbannedAt: admin.firestore.FieldValue.serverTimestamp(),
+              updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            },
+            { merge: true }
+          );
+
+          let authDisabled = false;
+          try {
+            await admin.auth().updateUser(userId, { disabled: false });
+            authDisabled = false;
+          } catch (authError) {
+            if (authError.code !== 'auth/user-not-found') {
+              throw authError;
+            }
+          }
+
+          return res.json({
+            ok: true,
+            action: 'unban',
+            userId,
+            authDisabled,
+          });
+        }
+
+        if (action === 'delete') {
+          const userRef = admin.firestore().collection('users').doc(userId);
+          const scansDeleted = await deleteQueryInBatches(userRef.collection('scans'));
+          const rewardsDeleted = await deleteQueryInBatches(userRef.collection('rewards'));
+          const pendingDeleted = await deleteQueryInBatches(userRef.collection('pendingStamps'));
+
+          const userSnap = await userRef.get();
+          if (userSnap.exists) {
+            await userRef.delete();
+          }
+
+          const businessDeactivated = await deactivateOwnedBusiness(userId);
+
+          let authDeleted = false;
+          try {
+            await admin.auth().deleteUser(userId);
+            authDeleted = true;
+          } catch (authError) {
+            if (authError.code !== 'auth/user-not-found') {
+              throw authError;
+            }
+          }
+
+          return res.json({
+            ok: true,
+            action: 'delete',
+            userId,
+            authDeleted,
+            firestoreDeleted: true,
+            businessDeactivated,
+            deleted: {
+              scans: scansDeleted,
+              rewards: rewardsDeleted,
+              pendingStamps: pendingDeleted,
+            },
+          });
+        }
+
+        return res.status(400).json({ error: 'Unknown action. Use ban, unban, or delete.' });
+      } catch (error) {
+        console.error('[platformAdmin] error:', error);
+        return res.status(500).json({
+          error: error.message || 'Platform admin request failed',
+        });
+      }
+    });
+  });

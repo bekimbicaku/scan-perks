@@ -14,6 +14,20 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == businessId;
     }
 
+    // Platform admins: custom claim admin=true, or email allowlist.
+    // Keep in sync with lib/adminAccess.ts / EXPO_PUBLIC_ADMIN_EMAILS.
+    function isPlatformAdmin() {
+      return isAuthenticated() && (
+        request.auth.token.admin == true ||
+        request.auth.token.email == 'bekimbicaku4@gmail.com'
+      );
+    }
+
+    function adminBanFieldsOnly() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasOnly(['banned', 'bannedAt', 'bannedBy', 'unbannedAt', 'updatedAt']);
+    }
+
     function isValidScanIncrement() {
       let data = request.resource.data;
       return data.keys().hasAll(['businessId', 'lastScan', 'totalScans']) &&
@@ -30,10 +44,13 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow read: if isAuthenticated() && isOwner(userId);
+      allow read: if isAuthenticated() && (isOwner(userId) || isPlatformAdmin());
       allow create: if isAuthenticated() && isOwner(userId);
-      allow update: if isAuthenticated() && isOwner(userId);
-      allow delete: if isAuthenticated() && isOwner(userId);
+      allow update: if isAuthenticated() && (
+        isOwner(userId) ||
+        (isPlatformAdmin() && adminBanFieldsOnly())
+      );
+      allow delete: if isAuthenticated() && (isOwner(userId) || isPlatformAdmin());
 
       match /scans/{businessId} {
         allow read: if isAuthenticated() && isOwner(userId);

@@ -10,7 +10,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { signInWithEmailAndPassword, auth } from '@/lib/firebase';
+import { signInWithEmailAndPassword, signOut, auth, getDb } from '@/lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 import { Mail, Lock, ArrowRight } from 'lucide-react-native';
 import GlassBackground, { GlassCard } from '@/components/ui/GlassBackground';
 import GlassInput from '@/components/ui/GlassInput';
@@ -45,7 +46,13 @@ export default function LoginScreen() {
     setError('');
 
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      const credential = await signInWithEmailAndPassword(auth, email, password);
+      const profile = await getDoc(doc(getDb(), 'users', credential.user.uid));
+      if (profile.exists() && profile.data()?.banned === true) {
+        await signOut(auth);
+        setError('This account has been suspended.');
+        return;
+      }
       await markWelcomeSeen();
       router.replace(await getPostAuthHref());
     } catch {

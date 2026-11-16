@@ -32,6 +32,8 @@ declare global {
       EXPO_PUBLIC_PROJECT_ID: string;
       EXPO_PUBLIC_APP_URL: string;
       EXPO_PUBLIC_ANDROID_STORE_URL: string;
+      /** Comma-separated platform admin emails for /admin */
+      EXPO_PUBLIC_ADMIN_EMAILS?: string;
     }
   }
 }

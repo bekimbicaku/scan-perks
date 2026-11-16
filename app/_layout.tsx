@@ -115,6 +115,7 @@ export default function RootLayout() {
               <Stack.Screen name="(auth)" />
               <Stack.Screen name="invite/[code]" />
               <Stack.Screen name="(tabs)" />
+              <Stack.Screen name="admin" />
               <Stack.Screen name="payment-success" />
               <Stack.Screen name="payment-cancelled" />
               <Stack.Screen name="business/[id]" options={{ presentation: 'card' }} />
