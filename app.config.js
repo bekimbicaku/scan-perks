@@ -40,7 +40,7 @@ module.exports = {
       },
     },
     android: {
-      versionCode: 24,
+      versionCode: 25,
       edgeToEdgeEnabled: true,
       predictiveBackGestureEnabled: true,
       softwareKeyboardLayoutMode: 'resize',
