@@ -649,6 +649,337 @@ async function deactivateOwnedBusiness(userId) {
   return true;
 }
 
+function getResendConfig() {
+  let legacy = {};
+  try {
+    legacy = functions.config().reengage || {};
+  } catch (error) {
+    legacy = {};
+  }
+  return {
+    resendKey: process.env.RESEND_API_KEY || legacy.resend_api_key || '',
+    resendFrom: process.env.RESEND_FROM || legacy.resend_from || '',
+    appName: process.env.APP_NAME || legacy.app_name || 'Scan Perks',
+    appUrl: (process.env.APP_URL || legacy.app_url || 'https://app.scan-perks.com').replace(/\/$/, ''),
+  };
+}
+
+async function sendExpoPushToken(token, title, body, data) {
+  const response = await fetch('https://exp.host/--/api/v2/push/send', {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Accept-Encoding': 'gzip, deflate',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      to: token,
+      sound: 'default',
+      title,
+      body,
+      data: data || {},
+      channelId: 'offers',
+    }),
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(payload.errors?.[0]?.message || `Expo push failed (${response.status})`);
+  }
+  const ticket = Array.isArray(payload.data) ? payload.data[0] : payload.data;
+  if (ticket && ticket.status === 'error') {
+    throw new Error(ticket.message || 'Expo push ticket error');
+  }
+}
+
+async function sendPromoResendEmail(config, to, name, title, body) {
+  const greeting = name ? `Hi ${name},` : 'Hi,';
+  const text = [greeting, '', body, '', `Open Scan Perks: ${config.appUrl}`, '', `— ${config.appName}`].join(
+    '\n'
+  );
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${config.resendKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      from: config.resendFrom,
+      to: [to],
+      subject: title,
+      text,
+    }),
+  });
+  if (!response.ok) {
+    const payload = await response.text();
+    throw new Error(`Resend failed (${response.status}): ${payload.slice(0, 300)}`);
+  }
+}
+
+async function applySubscriptionPriceOverride({
+  businessId,
+  amountUsd,
+  months,
+  adminUid,
+}) {
+  if (!getStripeSecretKey()) {
+    throw new Error('Stripe secret not configured on functions');
+  }
+
+  const businessRef = admin.firestore().collection('businesses').doc(businessId);
+  const businessSnap = await businessRef.get();
+  if (!businessSnap.exists) {
+    throw new Error('Business not found');
+  }
+  const business = businessSnap.data() || {};
+  const ownerId = business.ownerId || businessId;
+  const userRef = admin.firestore().collection('users').doc(ownerId);
+  const userSnap = await userRef.get();
+  if (!userSnap.exists) {
+    throw new Error('Business owner not found');
+  }
+  const user = userSnap.data() || {};
+  const subscriptionId = user.stripeSubscriptionId;
+  if (!subscriptionId) {
+    throw new Error('Owner has no stripeSubscriptionId — cannot override price');
+  }
+
+  const amountCents = Math.round(Number(amountUsd) * 100);
+  if (!Number.isFinite(amountCents) || amountCents < 100) {
+    throw new Error('amountUsd must be at least 1.00');
+  }
+
+  const monthsInt = months == null || months === '' ? 0 : Math.floor(Number(months));
+  if (!Number.isFinite(monthsInt) || monthsInt < 0 || monthsInt > 36) {
+    throw new Error('months must be 0–36 (0 = keep until changed again)');
+  }
+
+  const subscription = await stripe.subscriptions.retrieve(subscriptionId, {
+    expand: ['items.data.price'],
+  });
+  if (!subscription || subscription.status === 'canceled') {
+    throw new Error(`Subscription is not active (${subscription && subscription.status})`);
+  }
+  const item = subscription.items && subscription.items.data && subscription.items.data[0];
+  if (!item || !item.price) {
+    throw new Error('Subscription has no price item');
+  }
+
+  const originalPriceId = item.price.id;
+  const productId = typeof item.price.product === 'string' ? item.price.product : item.price.product.id;
+  const currency = item.price.currency || 'usd';
+  const interval = (item.price.recurring && item.price.recurring.interval) || 'month';
+  const intervalCount = (item.price.recurring && item.price.recurring.interval_count) || 1;
+
+  const overridePrice = await stripe.prices.create({
+    product: productId,
+    unit_amount: amountCents,
+    currency,
+    recurring: { interval, interval_count: intervalCount },
+    nickname: `admin-override-${businessId}-${amountCents}`,
+    metadata: {
+      businessId,
+      ownerId,
+      adminUid,
+      kind: 'platform_admin_override',
+    },
+  });
+
+  let scheduleId = null;
+  let periodEndBehavior = 'keep';
+
+  if (monthsInt > 0) {
+    // Temporary: N billing cycles at override, then revert to original price.
+    let schedule = await stripe.subscriptionSchedules.create({
+      from_subscription: subscriptionId,
+    });
+    const startDate = schedule.phases[0].start_date;
+    schedule = await stripe.subscriptionSchedules.update(schedule.id, {
+      end_behavior: 'release',
+      phases: [
+        {
+          start_date: startDate,
+          items: [{ price: overridePrice.id, quantity: item.quantity || 1 }],
+          iterations: monthsInt,
+        },
+        {
+          items: [{ price: originalPriceId, quantity: item.quantity || 1 }],
+        },
+      ],
+    });
+    scheduleId = schedule.id;
+    periodEndBehavior = 'revert_after_months';
+  } else {
+    // Permanent until admin changes again. No proration invoice; next invoice uses new price.
+    await stripe.subscriptionItems.update(item.id, {
+      price: overridePrice.id,
+      proration_behavior: 'none',
+    });
+    periodEndBehavior = 'keep';
+  }
+
+  const overrideRecord = {
+    amountUsd: amountCents / 100,
+    amountCents,
+    months: monthsInt,
+    periodEndBehavior,
+    originalPriceId,
+    overridePriceId: overridePrice.id,
+    scheduleId,
+    stripeSubscriptionId: subscriptionId,
+    setBy: adminUid,
+    setAt: admin.firestore.FieldValue.serverTimestamp(),
+  };
+
+  await businessRef.set(
+    {
+      priceOverride: overrideRecord,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    },
+    { merge: true }
+  );
+  await userRef.set(
+    {
+      priceOverride: overrideRecord,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    },
+    { merge: true }
+  );
+
+  return {
+    businessId,
+    ownerId,
+    amountUsd: amountCents / 100,
+    months: monthsInt,
+    periodEndBehavior,
+    originalPriceId,
+    overridePriceId: overridePrice.id,
+    scheduleId,
+    stripeSubscriptionId: subscriptionId,
+  };
+}
+
+async function sendAdminPromo({
+  title,
+  body,
+  channels,
+  audience,
+  businessId,
+  adminUid,
+}) {
+  const cleanTitle = String(title || '').trim();
+  const cleanBody = String(body || '').trim();
+  if (!cleanTitle || !cleanBody) {
+    throw new Error('title and body are required');
+  }
+  if (cleanTitle.length > 120 || cleanBody.length > 2000) {
+    throw new Error('title/body too long');
+  }
+
+  const wantPush = channels.includes('push');
+  const wantEmail = channels.includes('email');
+  if (!wantPush && !wantEmail) {
+    throw new Error('Select at least one channel: push or email');
+  }
+
+  const config = getResendConfig();
+  if (wantEmail && (!config.resendKey || !config.resendFrom)) {
+    throw new Error('Email channel requires RESEND_API_KEY and RESEND_FROM');
+  }
+
+  const usersSnap = await admin.firestore().collection('users').get();
+  const targets = [];
+
+  for (const userDoc of usersSnap.docs) {
+    const data = userDoc.data() || {};
+    if (data.banned === true) continue;
+
+    if (audience === 'owners') {
+      const biz = await admin.firestore().collection('businesses').doc(userDoc.id).get();
+      if (!biz.exists) continue;
+      const bizData = biz.data() || {};
+      if (!(bizData.name && bizData.ownerId)) continue;
+    } else if (audience === 'customers') {
+      if (!businessId) {
+        throw new Error('businessId is required for customers audience');
+      }
+      const scan = await admin
+        .firestore()
+        .collection('users')
+        .doc(userDoc.id)
+        .collection('scans')
+        .doc(businessId)
+        .get();
+      if (!scan.exists) continue;
+    } else if (audience !== 'all') {
+      throw new Error('audience must be all, owners, or customers');
+    }
+
+    targets.push({
+      id: userDoc.id,
+      email: typeof data.email === 'string' ? data.email.trim() : '',
+      name: typeof data.name === 'string' ? data.name : '',
+      expoPushToken: typeof data.expoPushToken === 'string' ? data.expoPushToken : '',
+    });
+  }
+
+  const MAX_SENDS = 500;
+  const limited = targets.slice(0, MAX_SENDS);
+  let pushSent = 0;
+  let pushFailed = 0;
+  let emailSent = 0;
+  let emailFailed = 0;
+
+  for (const target of limited) {
+    if (wantPush && target.expoPushToken) {
+      try {
+        await sendExpoPushToken(target.expoPushToken, cleanTitle, cleanBody, {
+          type: 'admin_promo',
+          businessId: businessId || '',
+        });
+        pushSent += 1;
+      } catch (error) {
+        pushFailed += 1;
+      }
+    }
+    if (wantEmail && target.email && target.email.includes('@')) {
+      try {
+        await sendPromoResendEmail(config, target.email, target.name, cleanTitle, cleanBody);
+        emailSent += 1;
+      } catch (error) {
+        emailFailed += 1;
+      }
+    }
+  }
+
+  const logRef = await admin.firestore().collection('adminPromoLogs').add({
+    title: cleanTitle,
+    body: cleanBody,
+    channels,
+    audience,
+    businessId: businessId || null,
+    targetsMatched: targets.length,
+    targetsAttempted: limited.length,
+    pushSent,
+    pushFailed,
+    emailSent,
+    emailFailed,
+    truncated: targets.length > MAX_SENDS,
+    sentBy: adminUid,
+    sentAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+
+  return {
+    logId: logRef.id,
+    targetsMatched: targets.length,
+    targetsAttempted: limited.length,
+    pushSent,
+    pushFailed,
+    emailSent,
+    emailFailed,
+    truncated: targets.length > MAX_SENDS,
+  };
+}
+
 exports.platformAdmin = functions
   .region('europe-west1')
   .https.onRequest(async (req, res) => {
@@ -744,6 +1075,57 @@ exports.platformAdmin = functions
             allTimePaidUsd: allTimePaidCents / 100,
             invoicesScanned,
             source: 'stripe',
+          });
+        }
+
+        if (action === 'setPriceOverride') {
+          if (req.body?.confirm !== true) {
+            return res.status(400).json({
+              error: 'confirm: true is required for billing changes',
+            });
+          }
+          const businessId =
+            typeof req.body.businessId === 'string' ? req.body.businessId.trim() : '';
+          if (!businessId) {
+            return res.status(400).json({ error: 'businessId is required' });
+          }
+          const result = await applySubscriptionPriceOverride({
+            businessId,
+            amountUsd: req.body.amountUsd,
+            months: req.body.months,
+            adminUid: decoded.uid,
+          });
+          return res.json({
+            ok: true,
+            action: 'setPriceOverride',
+            ...result,
+          });
+        }
+
+        if (action === 'sendPromo') {
+          if (req.body?.confirm !== true) {
+            return res.status(400).json({
+              error: 'confirm: true is required before sending promos',
+            });
+          }
+          const channels = Array.isArray(req.body.channels)
+            ? req.body.channels.map((c) => String(c))
+            : [];
+          const audience = typeof req.body.audience === 'string' ? req.body.audience.trim() : 'all';
+          const businessId =
+            typeof req.body.businessId === 'string' ? req.body.businessId.trim() : '';
+          const result = await sendAdminPromo({
+            title: req.body.title,
+            body: req.body.body,
+            channels,
+            audience,
+            businessId: businessId || null,
+            adminUid: decoded.uid,
+          });
+          return res.json({
+            ok: true,
+            action: 'sendPromo',
+            ...result,
           });
         }
 
@@ -853,7 +1235,9 @@ exports.platformAdmin = functions
           });
         }
 
-        return res.status(400).json({ error: 'Unknown action. Use ban, unban, delete, or revenue.' });
+        return res.status(400).json({
+          error: 'Unknown action. Use ban, unban, delete, revenue, setPriceOverride, or sendPromo.',
+        });
       } catch (error) {
         console.error('[platformAdmin] error:', error);
         return res.status(500).json({

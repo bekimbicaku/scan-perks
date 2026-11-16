@@ -134,10 +134,15 @@ export default function AdminDashboardScreen() {
           <Text style={styles.kicker}>ScanPerks</Text>
           <Text style={styles.title}>Platform admin</Text>
         </View>
-        <TouchableOpacity style={styles.navButton} onPress={() => router.push('/admin/users')}>
-          <Users size={18} color={stamp.deep} />
-          <Text style={styles.navButtonText}>Users</Text>
-        </TouchableOpacity>
+        <View style={styles.navRow}>
+          <TouchableOpacity style={styles.navButton} onPress={() => router.push('/admin/promo')}>
+            <Text style={styles.navButtonText}>Promo</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.navButton} onPress={() => router.push('/admin/users')}>
+            <Users size={18} color={stamp.deep} />
+            <Text style={styles.navButtonText}>Users</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {loading && !metrics ? (
@@ -348,6 +353,11 @@ const styles = StyleSheet.create({
     fontFamily: outfit.extra,
     fontSize: 28,
     color: stamp.deep,
+  },
+  navRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   navButton: {
     flexDirection: 'row',

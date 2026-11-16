@@ -38,6 +38,11 @@ Signed-in platform admins see a **Platform admin** button on the Profile tab (ab
 - Scans last 7d vs prior 7d from `businesses/{id}/analytics/daily`  
 - Customer + scan totals from `businesses/{id}/statistics/scans`  
 - Searchable business list + detail (plan, trial, owner, Stripe ids)  
+- Per-business Stripe **price override** on business detail (confirm required)  
+  - `months = 0`: keep override until changed again  
+  - `months ≥ 1`: Stripe subscription schedule reverts to the original price after N billing cycles  
+  - No proration invoice; new amount applies on subsequent invoices / schedule phases  
+- **/admin/promo**: promotional Expo push + Resend email (confirm required; audiences: all / owners / customers-of-business; capped at 500)  
 - Users list with ban / unban / delete (confirmations required)
 
 ## Ban vs delete

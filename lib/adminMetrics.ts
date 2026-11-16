@@ -24,6 +24,16 @@ export type AdminOwnerInfo = {
   lastPaymentAt: Date | null;
 };
 
+export type AdminPriceOverrideInfo = {
+  amountUsd: number;
+  months: number;
+  periodEndBehavior: string;
+  originalPriceId: string;
+  overridePriceId: string;
+  scheduleId: string;
+  setAt: Date | null;
+};
+
 export type AdminBusinessRow = {
   id: string;
   name: string;
@@ -43,6 +53,7 @@ export type AdminBusinessRow = {
   owner: AdminOwnerInfo | null;
   catalogMonthlyUsd: number;
   isPayingStripe: boolean;
+  priceOverride: AdminPriceOverrideInfo | null;
 };
 
 export type AdminUserRow = {
@@ -120,6 +131,22 @@ function sumDailyScans(
 
 function catalogPrice(plan: string): number {
   return PLAN_MONTHLY_USD[plan] ?? PLAN_MONTHLY_USD.basic;
+}
+
+function parsePriceOverride(raw: unknown): AdminPriceOverrideInfo | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const data = raw as Record<string, unknown>;
+  const amountUsd = typeof data.amountUsd === 'number' ? data.amountUsd : null;
+  if (amountUsd == null) return null;
+  return {
+    amountUsd,
+    months: typeof data.months === 'number' ? data.months : 0,
+    periodEndBehavior: String(data.periodEndBehavior || ''),
+    originalPriceId: String(data.originalPriceId || ''),
+    overridePriceId: String(data.overridePriceId || ''),
+    scheduleId: String(data.scheduleId || ''),
+    setAt: toDate(data.setAt),
+  };
 }
 
 function ownerFromUser(
@@ -307,6 +334,7 @@ export async function loadAdminDashboardMetrics(): Promise<AdminDashboardMetrics
       owner,
       catalogMonthlyUsd: isPayingStripe ? catalogPrice(plan) : 0,
       isPayingStripe,
+      priceOverride: parsePriceOverride(data.priceOverride) || parsePriceOverride(ownerData?.priceOverride),
     });
   }
 
@@ -427,5 +455,6 @@ export async function loadAdminBusinessDetail(businessId: string): Promise<Admin
     owner,
     catalogMonthlyUsd: isPayingStripe ? catalogPrice(plan) : 0,
     isPayingStripe,
+    priceOverride: parsePriceOverride(data.priceOverride) || parsePriceOverride(ownerData?.priceOverride),
   };
 }

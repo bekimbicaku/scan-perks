@@ -56,6 +56,7 @@ export default function AdminLayout() {
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: stamp.mist } }}>
       <Stack.Screen name="index" />
       <Stack.Screen name="users" />
+      <Stack.Screen name="promo" />
       <Stack.Screen name="business/[id]" />
     </Stack>
   );
